@@ -1,0 +1,23 @@
+# Version Lockfile
+# Generated: 2026-07-15
+# Format: tool = version
+# For reproducibility verification
+
+foundry = "1.7.1 (4072e48705af9d93e3c0f6e29e93b5e9a40caed8)"
+slither = "0.11.4"
+aderyn = "0.6.8"
+medusa = "1.5.1"
+echidna = "2.3.2"
+halmos = "0.3.3"
+hevm = "0.58.0"
+wake = "4.22.1"
+kontrol = "not_installed"
+heimdall_rs = "not_installed"
+solc = "0.8.35"
+z3 = "not_validated"
+crytic_properties_commit = "not_forked"
+create_chimera_app_commit = "not_forked"
+fork_block_number = "not_applicable"
+corpus_dir = "not_applicable"
+machine_architecture = "arm64 (Apple Silicon)"
+os = "macOS 13.7.8"

@@ -1,0 +1,6 @@
+[package]
+name = "vulnerable-solana"
+version = "0.1.0"
+[dependencies]
+solana-program = "1.18"
+anchor-lang = "0.29"

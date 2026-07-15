@@ -1,0 +1,32 @@
+# Hermes Pipeline Docker Compose
+version: '3.8'
+
+networks:
+  hermes-net:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.20.0.0/16
+
+services:
+  pipeline:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile
+    image: hermes-pipeline:latest
+    network_mode: "none"
+    read_only: true
+    tmpfs:
+      - /tmp:noexec,nosuid,size=100m
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    cap_add:
+      - NET_RAW
+    environment:
+      - ETH_RPC_URL=
+      - FOUNDRY_PROFILE=ci
+    volumes:
+      # Mounted per-job by orchestrator
+    working_dir: /workspace

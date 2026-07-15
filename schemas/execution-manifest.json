@@ -1,0 +1,62 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://hermes-pipeline.dev/schemas/execution-manifest.json",
+  "title": "Execution Manifest",
+  "description": "Provenance record for a single pipeline stage execution",
+  "type": "object",
+  "required": [
+    "job_id", "stage_id", "tool", "tool_version", "adapter_version",
+    "command", "start_time", "end_time", "exit_code", "completion_state"
+  ],
+  "properties": {
+    "job_id": {"type": "string"},
+    "stage_id": {"type": "string"},
+    "tool": {"type": "string"},
+    "tool_version": {"type": "string"},
+    "adapter_version": {"type": "string"},
+    "schema_version": {"type": "string"},
+    "command": {"type": "string"},
+    "arguments": {"type": "array", "items": {"type": "string"}},
+    "working_directory": {"type": "string"},
+    "environment_allowlist": {"type": "array", "items": {"type": "string"}},
+    "start_time": {"type": "string", "format": "date-time"},
+    "end_time": {"type": "string", "format": "date-time"},
+    "duration_seconds": {"type": "number"},
+    "exit_code": {"type": "integer"},
+    "timeout": {"type": "boolean"},
+    "resources": {
+      "type": "object",
+      "properties": {
+        "cpu_allocated": {"type": "integer"},
+        "ram_mb_allocated": {"type": "integer"},
+        "disk_mb_allocated": {"type": "integer"},
+        "cpu_peak": {"type": "number"},
+        "ram_mb_peak": {"type": "integer"},
+        "disk_mb_peak": {"type": "integer"}
+      }
+    },
+    "output_hashes": {
+      "type": "object",
+      "additionalProperties": {"type": "string"}
+    },
+    "artifact_paths": {
+      "type": "array",
+      "items": {"type": "string"}
+    },
+    "target_commit": {"type": "string"},
+    "compiler_version": {"type": "string"},
+    "container_image_digest": {"type": "string"},
+    "fork_chain": {"type": "string"},
+    "fork_block": {"type": "integer"},
+    "retry_count": {"type": "integer"},
+    "error_classification": {
+      "type": "string",
+      "enum": ["transient", "deterministic", "timeout", "oom", "unsupported", "unknown"]
+    },
+    "completion_state": {
+      "type": "string",
+      "enum": ["completed", "failed", "timed_out", "skipped", "cancelled", "partial"]
+    },
+    "coverage_limitations": {"type": "array", "items": {"type": "string"}}
+  }
+}

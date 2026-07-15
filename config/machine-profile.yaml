@@ -1,0 +1,64 @@
+# Machine Profile — Smart-Contract Security Pipeline
+# REPLACE WITH YOUR ACTUAL HARDWARE SPECS BEFORE PRODUCTION USE
+# This file is REQUIRES RUNTIME VALIDATION — calibrate using controlled fixtures
+
+# ===== Architecture (REQUIRES RUNTIME VALIDATION) =====
+machine:
+  architecture: "x86_64"
+  cpus_configured: 16
+  ram_gb: 32
+  storage_gb: 200
+
+# ===== OS Reservation =====
+reserved:
+  os_cpus: 1
+  os_ram_gb: 4
+  os_disk_gb: 20
+
+# ===== Concurrency Limits =====
+limits:
+  max_concurrent_containers: 4
+  max_concurrent_static: 2
+  max_concurrent_fuzz: 1
+  max_concurrent_symbolic: 1
+  per_stage_max: 3
+  per_stage_concurrency: 2
+
+# ===== Per-Resource Quotas =====
+quotas:
+  max_job_workspace_gb: 20
+  max_artifact_gb: 10
+  max_corpus_gb: 5
+
+# ===== Per-Tool Resource Envelopes =====
+# All values: REQUIRES RUNTIME VALIDATION
+# Calibrate using controlled fixtures before production use
+per_tool:
+  slither:
+    cpus: 1
+    ram_gb: 2
+    timeout_s: 120
+  aderyn:
+    cpus: 1
+    ram_gb: 1
+    timeout_s: 60
+  medusa:
+    cpus: 4
+    ram_gb: 8
+    timeout_s: 1200
+  echidna:
+    cpus: 2
+    ram_gb: 4
+    timeout_s: 3600
+  halmos:
+    cpus: 2
+    ram_gb: 8
+    timeout_s: 1800
+  hevm:
+    cpus: 2
+    ram_gb: 8
+    timeout_s: 1800
+  wake:
+    cpus: 1
+    ram_gb: 2
+    timeout_s: 300

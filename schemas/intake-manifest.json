@@ -1,0 +1,45 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://hermes-pipeline.dev/schemas/intake-manifest.json",
+  "title": "Intake Manifest",
+  "description": "Immutable record of target intake for a pipeline job",
+  "type": "object",
+  "required": [
+    "job_id", "target", "commit_sha", "ecosystem", "framework",
+    "intake_timestamp", "verification_state"
+  ],
+  "properties": {
+    "job_id": {"type": "string"},
+    "target": {
+      "type": "object",
+      "required": ["type"],
+      "properties": {
+        "type": {"type": "string", "enum": ["remote", "local", "unknown"]},
+        "url": {"type": "string"},
+        "local_path": {"type": "string"},
+        "owner": {"type": "string"},
+        "name": {"type": "string"},
+        "branch": {"type": "string"}
+      }
+    },
+    "commit_sha": {"type": "string"},
+    "ecosystem": {"type": "string", "enum": ["evm", "solana", "move", "unknown"]},
+    "framework": {"type": "string", "enum": ["foundry", "hardhat", "standard", "unknown"]},
+    "framework_confidence": {"type": "number", "minimum": 0, "maximum": 1},
+    "intake_timestamp": {"type": "string", "format": "date-time"},
+    "verification_state": {"type": "string", "enum": ["pending", "verified", "failed"]},
+    "dependency_state": {"type": "string"},
+    "submodule_state": {"type": "string"},
+    "program_eligibility_ref": {"type": "string"},
+    "input_hashes": {
+      "type": "object",
+      "additionalProperties": {"type": "string"}
+    },
+    "size_bytes": {"type": "integer"},
+    "errors": {
+      "type": "array",
+      "items": {"type": "string"}
+    },
+    "schema_version": {"type": "string"}
+  }
+}

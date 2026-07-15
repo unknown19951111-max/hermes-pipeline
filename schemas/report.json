@@ -1,0 +1,64 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://hermes-pipeline.dev/schemas/report.json",
+  "title": "Pipeline Report",
+  "description": "Final pipeline output report with complete provenance and classification separation",
+  "type": "object",
+  "required": ["job_id", "target", "findings", "stages", "schema_version"],
+  "properties": {
+    "job_id": {"type": "string"},
+    "target": {
+      "type": "object",
+      "properties": {
+        "url": {"type": "string"},
+        "commit": {"type": "string"},
+        "ecosystem": {"type": "string"},
+        "framework": {"type": "string"},
+        "compiler_version": {"type": "string"}
+      }
+    },
+    "findings": {
+      "type": "object",
+      "properties": {
+        "confirmed_vulnerabilities": {"type": "array", "items": {"$ref": "finding.json"}},
+        "reproducible_suspicious": {"type": "array", "items": {"$ref": "finding.json"}},
+        "invariant_violations": {"type": "array", "items": {"$ref": "finding.json"}},
+        "tool_warnings": {"type": "array", "items": {"$ref": "finding.json"}},
+        "informational": {"type": "array", "items": {"$ref": "finding.json"}},
+        "unsupported_hypotheses": {"type": "array", "items": {"$ref": "finding.json"}},
+        "false_positives": {"type": "array", "items": {"$ref": "finding.json"}},
+        "duplicate_groups": {"type": "array", "items": {"$ref": "finding.json"}},
+        "analysis_failures": {"type": "array", "items": {"$ref": "finding.json"}}
+      }
+    },
+    "stages": {
+      "type": "object",
+      "properties": {
+        "completed": {"type": "array", "items": {"type": "string"}},
+        "failed": {"type": "array", "items": {"type": "string"}},
+        "timed_out": {"type": "array", "items": {"type": "string"}},
+        "skipped": {"type": "array", "items": {"type": "string"}}
+      }
+    },
+    "coverage": {
+      "type": "object",
+      "properties": {
+        "tools_run": {"type": "array", "items": {"type": "string"}},
+        "tools_failed": {"type": "array", "items": {"type": "string"}},
+        "tools_skipped": {"type": "array", "items": {"type": "string"}},
+        "unreached_stages": {"type": "array", "items": {"type": "string"}},
+        "notes": {"type": "array", "items": {"type": "string"}}
+      }
+    },
+    "provenance": {
+      "type": "object",
+      "properties": {
+        "pipeline_version": {"type": "string"},
+        "schema_version": {"type": "string"},
+        "generated_at": {"type": "string", "format": "date-time"},
+        "duration_seconds": {"type": "number"}
+      }
+    },
+    "schema_version": {"type": "string"}
+  }
+}

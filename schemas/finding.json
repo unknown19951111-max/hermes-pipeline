@@ -1,0 +1,140 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://hermes-pipeline.dev/schemas/finding.json",
+  "title": "Security Finding",
+  "description": "Normalized security finding from any pipeline tool",
+  "type": "object",
+  "required": [
+    "finding_id", "job_id", "classification", "tool", "location",
+    "title", "description", "provenance", "schema_version"
+  ],
+  "properties": {
+    "finding_id": {
+      "type": "string",
+      "format": "uuid",
+      "description": "Globally unique finding identifier"
+    },
+    "job_id": {
+      "type": "string",
+      "description": "Job that produced this finding"
+    },
+    "classification": {
+      "type": "string",
+      "enum": [
+        "confirmed_vulnerability",
+        "reproducible_suspicious_behavior",
+        "invariant_violation",
+        "tool_generated_warning",
+        "duplicate_finding",
+        "informational_observation",
+        "unsupported_hypothesis",
+        "false_positive",
+        "analysis_failure"
+      ]
+    },
+    "severity": {
+      "type": "string",
+      "enum": ["critical", "high", "medium", "low", "informational", "none"],
+      "default": "none"
+    },
+    "confidence": {
+      "type": "object",
+      "required": ["level", "evidence_level", "evidence_sources"],
+      "properties": {
+        "level": {"type": "number", "minimum": 0, "maximum": 5},
+        "evidence_level": {
+          "type": "string",
+          "enum": ["no_evidence", "single_tool", "corroborated", "executable_failure", "deterministic", "human_approved"]
+        },
+        "evidence_sources": {"type": "array", "items": {"type": "string"}},
+        "rationale": {"type": "string"},
+        "calibration_version": {"type": "string"}
+      }
+    },
+    "evidence_level": {
+      "type": "string",
+      "enum": ["no_evidence", "single_tool", "corroborated", "executable_failure", "deterministic", "human_approved"]
+    },
+    "tool": {
+      "type": "object",
+      "required": ["name", "version", "rule_id"],
+      "properties": {
+        "name": {"type": "string"},
+        "version": {"type": "string"},
+        "rule_id": {"type": "string"},
+        "detector_id": {"type": "string"},
+        "invariant_id": {"type": "string"}
+      }
+    },
+    "location": {
+      "type": "object",
+      "required": ["file"],
+      "properties": {
+        "file": {"type": "string"},
+        "start_line": {"type": "integer", "minimum": 0},
+        "end_line": {"type": "integer", "minimum": 0},
+        "contract": {"type": "string"},
+        "function": {"type": "string"},
+        "call_path": {"type": "array", "items": {"type": "string"}}
+      }
+    },
+    "vulnerability_category": {
+      "type": "string",
+      "enum": [
+        "access_control", "arithmetic", "reentrancy", "flash_loan",
+        "oracle_manipulation", "front_running", "insolvency",
+        "share_inflation", "signature_replay", "governance_attack",
+        "bridge_risk", "upgrade_risk", "mev", "gas",
+        "logic_error", "compliance", "informational", "other"
+      ]
+    },
+    "title": {"type": "string"},
+    "description": {"type": "string"},
+    "deduplication_group": {"type": "string"},
+    "reproduction": {
+      "type": "object",
+      "properties": {
+        "status": {"type": "string", "enum": ["pass", "fail", "none"]},
+        "poc_path": {"type": "string"},
+        "poc_commit": {"type": "string"},
+        "fork_block": {"type": "integer"}
+      }
+    },
+    "provenance": {
+      "type": "object",
+      "required": ["job_id", "target_commit", "adapter_version", "schema_version"],
+      "properties": {
+        "job_id": {"type": "string"},
+        "target_commit": {"type": "string"},
+        "compiler_version": {"type": "string"},
+        "chain_id": {"type": "integer"},
+        "fork_block": {"type": "integer"},
+        "adapter_version": {"type": "string"},
+        "schema_version": {"type": "string"},
+        "command": {"type": "string"},
+        "exit_code": {"type": "integer"},
+        "timeout": {"type": "boolean"},
+        "artifact_paths": {
+          "type": "array",
+          "items": {"type": "string"}
+        },
+        "artifact_hashes": {
+          "type": "object",
+          "additionalProperties": {"type": "string"}
+        }
+      }
+    },
+    "timestamps": {
+      "type": "object",
+      "properties": {
+        "created": {"type": "string", "format": "date-time"},
+        "normalized": {"type": "string", "format": "date-time"}
+      }
+    },
+    "schema_version": {"type": "string"},
+    "coverage_limitations": {
+      "type": "array",
+      "items": {"type": "string"}
+    }
+  }
+}

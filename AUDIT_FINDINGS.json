@@ -1,0 +1,1083 @@
+[
+  {
+    "finding_id": "F-001",
+    "section": "Program Eligibility",
+    "title": "EligibilitySnapshot field mismatch: _validate() requires 'status', create() writes 'program_status'",
+    "evidence_state": "CONFIRMED",
+    "severity": "P0",
+    "priority": "CRITICAL",
+    "affected_files": [
+      "src/orchestrator/eligibility/__init__.py"
+    ],
+    "exact_locations": [
+      {
+        "file": "src/orchestrator/eligibility/__init__.py",
+        "line": 36,
+        "detail": "_validate() requires 'status' in required list"
+      },
+      {
+        "file": "src/orchestrator/eligibility/__init__.py",
+        "line": 55,
+        "detail": "create() writes 'program_status' instead of 'status'"
+      }
+    ],
+    "reproduction_command": "PYTHONPATH=src python3 -c 'from orchestrator.eligibility import EligibilitySnapshot; EligibilitySnapshot.create(\"test\", \"url\", \"ELIGIBLE\", program_status=\"active\")'",
+    "observed_output": "EligibilityError: Missing required field: status",
+    "expected_behavior": "EligibilitySnapshot.create() should succeed and produce a valid snapshot",
+    "actual_behavior": "Every call to create() raises EligibilityError because _validate() requires 'status' but the field written is 'program_status'",
+    "root_cause": "Field name mismatch between _validate() (line 36) and create() (line 55). The method _validate() requires 'status' but create() only writes 'program_status'.",
+    "production_impact": "Gate Zero cannot complete. Every eligibility evaluation fails. Eligible targets may be rejected; ineligible targets may consume compute.",
+    "downstream_consequences": "No target can pass the eligibility gate. All pipeline runs that depend on eligibility will fail or skip the gate.",
+    "specific_remediation": "Option A: Change _validate() line 36 to require 'program_status' instead of 'status'. Option B: Add 'status' to create() output dict. Preferred: rename field in _validate() to match what create() writes, and update _evaluate_from_data() to read 'program_status'.",
+    "files_to_modify": [
+      "src/orchestrator/eligibility/__init__.py"
+    ],
+    "validation_method": "Run the reproduction command; it should return a valid EligibilitySnapshot without raising EligibilityError.",
+    "required_tests": [
+      "test_eligibility_create_success",
+      "test_eligibility_create_with_all_fields",
+      "test_eligibility_evaluate_from_data"
+    ],
+    "acceptance_criteria": "EligibilitySnapshot.create('test', 'url', 'ELIGIBLE', program_status='active') succeeds and all fields are present.",
+    "dependencies": [],
+    "blocking_relationships": [
+      "F-017 (false phase claims)",
+      "F-018 (false task ledger claims)"
+    ],
+    "residual_risk": "Low \u2014 single field rename, easily verified."
+  },
+  {
+    "finding_id": "F-002",
+    "section": "Repository Intake",
+    "title": "Remote intake uses undefined 'kwargs' variable",
+    "evidence_state": "CONFIRMED",
+    "severity": "P0",
+    "priority": "CRITICAL",
+    "affected_files": [
+      "src/orchestrator/intake/__init__.py"
+    ],
+    "exact_locations": [
+      {
+        "file": "src/orchestrator/intake/__init__.py",
+        "line": 88,
+        "detail": "intake_remote() signature has no **kwargs parameter"
+      },
+      {
+        "file": "src/orchestrator/intake/__init__.py",
+        "line": -1,
+        "detail": "kwargs.get('owner') and kwargs.get('name') called on undefined variable"
+      }
+    ],
+    "reproduction_command": "PYTHONPATH=src python3 -c 'from orchestrator.intake import RepositoryManager; m = RepositoryManager(\"/tmp\"); m.intake_remote(\"https://github.com/example/repo.git\")'",
+    "observed_output": "NameError: name 'kwargs' is not defined",
+    "expected_behavior": "intake_remote() should accept a typed remote target and derive owner/name from the validated URL, not from undefined kwargs.",
+    "actual_behavior": "kwargs is not defined in the method scope. The method signature is `def intake_remote(self, url, branch=None, commit=None)` with no `**kwargs`.",
+    "root_cause": "The method signature doesn't accept **kwargs, but lines 150-151 reference kwargs.get(). This is a dangling reference from an incomplete refactor.",
+    "production_impact": "Remote Git repositories cannot be analyzed. Every remote intake raises NameError.",
+    "downstream_consequences": "All pipeline runs using remote intake fail. Only local intake works.",
+    "specific_remediation": "Replace kwargs.get() with URL-derived owner/name. Use a dataclass RemoteTarget(url, commit_sha, branch). Derive owner and repository name from the validated Git URL: parsed = url.rstrip('/').split('/')[-2:]. Validate URL format before parsing.",
+    "files_to_modify": [
+      "src/orchestrator/intake/__init__.py"
+    ],
+    "validation_method": "Run the reproduction command; it should succeed without NameError. Verify the manifest contains correct owner/name derived from the URL.",
+    "required_tests": [
+      "test_remote_exact_commit",
+      "test_remote_invalid_url",
+      "test_remote_invalid_commit",
+      "test_remote_branch_moving",
+      "test_remote_shallow_clone_missing_commit"
+    ],
+    "acceptance_criteria": "Remote intake succeeds with valid URL and commit. Invalid URL raises IntakeError. Owner/name derived from URL, not from kwargs.",
+    "dependencies": [],
+    "blocking_relationships": [
+      "F-017",
+      "F-018"
+    ],
+    "residual_risk": "Low \u2014 method exists but is unreachable due to NameError. Fix is straightforward."
+  },
+  {
+    "finding_id": "F-003",
+    "section": "Repository Intake",
+    "title": "Local symlink disclosure: shutil.copytree(symlinks=False) copies external files into workspace",
+    "evidence_state": "CONFIRMED",
+    "severity": "P0",
+    "priority": "CRITICAL",
+    "affected_files": [
+      "src/orchestrator/intake/__init__.py"
+    ],
+    "exact_locations": [
+      {
+        "file": "src/orchestrator/intake/__init__.py",
+        "line": 184,
+        "detail": "shutil.copytree(..., symlinks=False, ...) \u2014 dereferences symlinks, copies target content"
+      }
+    ],
+    "reproduction_command": "See test: create source with symlink to /etc/passwd; intake_local copies passwd content into workspace",
+    "observed_output": "Content of symlinked target file appears in workspace as a regular file",
+    "expected_behavior": "Symlink targets outside the source root must not be copied into the workspace",
+    "actual_behavior": "shutil.copytree with symlinks=False follows symlinks and copies the target file content into the workspace",
+    "root_cause": "Python's shutil.copytree(symlinks=False) silently dereferences symlinks. The target file's content is copied as if it were a regular file. No validation checks whether the symlink target is under the source root.",
+    "production_impact": "Host-secret disclosure. Cross-project data leakage. Sensitive files included in analysis artifacts. Contamination of content hashes and reports.",
+    "downstream_consequences": "Accidental uploading of host data. False-positive vulnerability findings from host-environment files entering analysis scope.",
+    "specific_remediation": "Phase 1 policy: Reject all symlinks during intake. Before copytree, walk the source tree with symlinks=False and check for any symlinks. If any symlink exists, reject the intake with analysis_failure. Do NOT preserve symlinks in the workspace.",
+    "files_to_modify": [
+      "src/orchestrator/intake/__init__.py"
+    ],
+    "validation_method": "Create a source directory with a symlink to /etc/passwd. Intake must reject the target with an explicit error.",
+    "required_tests": [
+      "test_local_symlink_to_external_file_rejected",
+      "test_local_symlink_to_etc_passwd",
+      "test_local_relative_symlink_escape",
+      "test_local_symlinked_directory",
+      "test_local_nested_symlink_chain",
+      "test_local_broken_symlink",
+      "test_local_symlink_loop",
+      "test_local_internal_symlink_accepted"
+    ],
+    "acceptance_criteria": "No symlink target content may enter the workspace, artifacts, logs, hashes, reports, or sandbox mounts. Symlinks are detected and rejected before any copying occurs.",
+    "dependencies": [],
+    "blocking_relationships": [
+      "F-015",
+      "F-016"
+    ],
+    "residual_risk": "Medium \u2014 rejection policy is safe but may break legitimate use of symlinks. Future phase could allow verified internal symlinks."
+  },
+  {
+    "finding_id": "F-004",
+    "section": "Adapter Execution Framework",
+    "title": "False adapter success after parser failure: exit_code==0 or len(normalized)>0",
+    "evidence_state": "CONFIRMED",
+    "severity": "P0",
+    "priority": "CRITICAL",
+    "affected_files": [
+      "src/orchestrator/adapters/base_adapter.py"
+    ],
+    "exact_locations": [
+      {
+        "file": "src/orchestrator/adapters/base_adapter.py",
+        "line": 172,
+        "detail": "success = exit_code == 0 or len(normalized) > 0"
+      }
+    ],
+    "reproduction_command": "PYTHONPATH=src python3 -c 'from orchestrator.adapters.base_adapter import BaseAdapter; # Verify: line 172'",
+    "observed_output": "When parse_output() raises, an analysis_failure finding is added to normalized, making len(normalized) > 0 and success=True even for nonzero exit codes",
+    "expected_behavior": "A tool that exits nonzero must have success=False, even if partial findings were recovered",
+    "actual_behavior": "Line 172: success = exit_code == 0 or len(normalized) > 0. When parse_output() raises Exception (lines 160-169), an analysis_failure finding is created, making len(normalized) > 0, which makes success=True even when the tool actually failed.",
+    "root_cause": "The success calculation conflates 'tool completed successfully' with 'we recovered some output after a failure'. A parse error recovery should not change the tool's exit status.",
+    "production_impact": "Failed tools are reported as successful. Pipeline coverage metrics are inflated. Downstream stages may depend on results from a failed tool.",
+    "downstream_consequences": "False confidence in tool coverage. Failed analysis steps invisible to operators. Automation decisions based on unreliable completion status.",
+    "specific_remediation": "Track three independent success flags: process_success = exit_code == 0; parse_success = (no parse exception); overall_success = process_success and parse_success. Move the analysis_failure finding creation to AFTER the success determination so it does not affect the success flag.",
+    "files_to_modify": [
+      "src/orchestrator/adapters/base_adapter.py"
+    ],
+    "validation_method": "Create a mock adapter that exits nonzero and produces malformed output. Verify AdapterResult.success == False.",
+    "required_tests": [
+      "test_adapter_parse_failure_returns_success_false",
+      "test_adapter_nonzero_exit_no_output",
+      "test_adapter_nonzero_exit_with_parseable_output"
+    ],
+    "acceptance_criteria": "AdapterResult.success is True only when exit_code==0 AND parse succeeds. A parse error recovery does not make success=True.",
+    "dependencies": [],
+    "blocking_relationships": [
+      "F-015",
+      "F-016"
+    ],
+    "residual_risk": "Low \u2014 fix is a single-line change plus a condition check."
+  },
+  {
+    "finding_id": "F-005",
+    "section": "Findings Schema and Normalization",
+    "title": "JSON Schema loaded but never used for validation (manual field checks only)",
+    "evidence_state": "CONFIRMED",
+    "severity": "P0",
+    "priority": "CRITICAL",
+    "affected_files": [
+      "src/orchestrator/normalize/__init__.py"
+    ],
+    "exact_locations": [
+      {
+        "file": "src/orchestrator/normalize/__init__.py",
+        "lines": -5,
+        "detail": "Schema loaded from file but never passed to jsonschema.validate()"
+      },
+      {
+        "file": "src/orchestrator/normalize/__init__.py",
+        "lines": -37,
+        "detail": "Manual field checks only (required fields list, enum membership, severity list)"
+      }
+    ],
+    "reproduction_command": "PYTHONPATH=src python3 -c 'from orchestrator.normalize import FindingNormalizer; n = FindingNormalizer(\"schemas/finding.json\"); print(n.validate({\"finding_id\": \"not-a-uuid\", \"classification\": \"invalid\", \"severity\": \"invalid\"}))'",
+    "observed_output": "Manual field checks pass for basic required-field presence but miss: UUID format, classification enum, severity enum, reproduction status enum, location constraints, and all nested required fields.",
+    "expected_behavior": "Findings must be validated against the declared JSON Schema (schemas/finding.json) using jsonschema.validate()",
+    "actual_behavior": "FindingNormalizer.loads schema file (line 33) but never calls jsonschema.validate(). Instead, it performs manual checks (lines 41-58) that only verify: (1) required fields present, (2) classification in hardcoded list, (3) severity in hardcoded list. The schema defines UUID format, nested objects, and enum constraints that are never checked.",
+    "root_cause": "The normalizer was written before jsonschema integration was implemented. The schema file is loaded but the validation call was never added.",
+    "production_impact": "Records can pass normalization while violating enum constraints, nested required fields, UUID formats, reproduction states, confidence structure, location constraints, and provenance requirements. The declared schema is not the runtime contract.",
+    "downstream_consequences": "Invalid records enter the pipeline. Downstream processing (dedup, classification, reporting) operates on data that violates the schema. Report consumers receive invalid data.",
+    "specific_remediation": "Replace manual validation with jsonschema.validate(finding, self.schema). Add jsonschema>=4.0 to pyproject.toml dependencies. Schema-load errors must raise (not be silently ignored).",
+    "files_to_modify": [
+      "src/orchestrator/normalize/__init__.py",
+      "pyproject.toml"
+    ],
+    "validation_method": "Run a finding with invalid UUID format through validate(); it must raise jsonschema.ValidationError.",
+    "required_tests": [
+      "test_schema_valid_finding_passes",
+      "test_schema_invalid_uuid_rejected",
+      "test_schema_invalid_classification_rejected",
+      "test_schema_invalid_reproduction_status_rejected",
+      "test_schema_missing_nested_required_field_rejected",
+      "test_schema_load_failure_stops_startup"
+    ],
+    "acceptance_criteria": "Every real adapter fixture validates. Every malformed fixture fails. Schema-load failure stops startup. Quarantined output and validation errors are stored.",
+    "dependencies": [
+      "F-001 (add jsonschema to pyproject.toml)"
+    ],
+    "blocking_relationships": [
+      "F-010",
+      "F-011"
+    ],
+    "residual_risk": "Medium \u2014 schema validation is a prerequisite for data integrity. All downstream processing depends on it."
+  },
+  {
+    "finding_id": "F-006",
+    "section": "Invariant Registry",
+    "title": "8 of 10 invariants marked VERIFIED without source commit, validation history, or implementation",
+    "evidence_state": "CONFIRMED",
+    "severity": "P0",
+    "priority": "CRITICAL",
+    "affected_files": [
+      "invariants/registry.json"
+    ],
+    "exact_locations": [
+      {
+        "file": "invariants/registry.json",
+        "line": -3,
+        "detail": "Invariant 1: source_commit='', status='VERIFIED', validation_history=[]"
+      },
+      {
+        "file": "invariants/registry.json",
+        "line": -3,
+        "detail": "Invariant 2: source_commit='', status='VERIFIED', validation_history=[]"
+      },
+      {
+        "file": "invariants/registry.json",
+        "line": -3,
+        "detail": "Invariant 3: source_commit='', status='VERIFIED', validation_history=[]"
+      },
+      {
+        "file": "invariants/registry.json",
+        "line": -3,
+        "detail": "Invariant 4: source_commit='', status='VERIFIED', validation_history=[]"
+      },
+      {
+        "file": "invariants/registry.json",
+        "line": -3,
+        "detail": "Invariant 5: source_commit='', status='VERIFIED', validation_history=[]"
+      },
+      {
+        "file": "invariants/registry.json",
+        "line": -3,
+        "detail": "Invariant 6: source_commit='', status='VERIFIED', validation_history=[]"
+      },
+      {
+        "file": "invariants/registry.json",
+        "line": -3,
+        "detail": "Invariant 7: source_commit='', status='VERIFIED', validation_history=[]"
+      },
+      {
+        "file": "invariants/registry.json",
+        "line": -1,
+        "detail": "Invariant 8: source_commit='', status='VERIFIED', validation_history=[]"
+      }
+    ],
+    "reproduction_command": "grep -c '\"status\": \"VERIFIED\"' invariants/registry.json && grep '\"source_commit\": \"\"' invariants/registry.json | wc -l",
+    "observed_output": "8 invariants with status=VERIFIED, all with empty source_commit and empty validation_history",
+    "expected_behavior": "VERIFIED status must require: implementation_path, source_commit, positive_cases, negative_cases, validation_command, validation_artifacts, reviewer, review_timestamp",
+    "actual_behavior": "8 of 10 invariants: status=VERIFIED, source_commit='', validation_history=[]. No implementation file exists. Positive/negative test evidence absent. Some invariants are derived from editorial incident reports (rekt.news) with no validation.",
+    "root_cause": "The registry was populated with metadata-only entries. The status field was set to VERIFIED during initial development to indicate 'we intend to implement this' rather than 'this invariant is validated.'",
+    "production_impact": "Downstream fuzzers may execute unproven or nonexistent properties while reports describe them as verified. This invalidates the central trust model of the project.",
+    "downstream_consequences": "Fuzzing campaigns can report 'invariant verified' for properties that have never been tested against real contracts. False confidence in security coverage.",
+    "specific_remediation": "Demote all 8 VERIFIED invariants to CANDIDATE. Create a promotion function that requires: implementation_path, source_commit, positive_cases, negative_cases, validation_command, validation_artifacts, reviewer, review_timestamp. Only allow VERIFIED transition through this function.",
+    "files_to_modify": [
+      "invariants/registry.json",
+      "src/orchestrator/classify/invariant_registry.py"
+    ],
+    "validation_method": "After demotion: grep -c '\"status\": \"VERIFIED\"' invariants/registry.json returns 0 for the 8 demoted entries.",
+    "required_tests": [
+      "test_invariant_promotion_requires_full_evidence",
+      "test_invariant_promotion_rejects_empty_commit",
+      "test_invariant_promotion_rejects_empty_validation"
+    ],
+    "acceptance_criteria": "No VERIFIED invariant has empty source_commit. Promotion requires complete evidence. Registry entries without evidence are CANDIDATE.",
+    "dependencies": [],
+    "blocking_relationships": [
+      "F-007 (harness)",
+      "F-008 (tautology)",
+      "F-010 (e2e vulnerable)",
+      "F-011 (e2e patched)"
+    ],
+    "residual_risk": "High \u2014 this is a data integrity issue. All downstream consumers trust the VERIFIED status."
+  },
+  {
+    "finding_id": "F-007",
+    "section": "Harness Generation",
+    "title": "Lending, DEX, governance, and bridge invariant functions are empty (no assertions)",
+    "evidence_state": "CONFIRMED",
+    "severity": "P0",
+    "priority": "CRITICAL",
+    "affected_files": [
+      "src/orchestrator/harness/__init__.py"
+    ],
+    "exact_locations": [
+      {
+        "file": "src/orchestrator/harness/__init__.py",
+        "line": -5,
+        "detail": "lending invariant_healthFactor(): empty body with only comments"
+      },
+      {
+        "file": "src/orchestrator/harness/__init__.py",
+        "line": -4,
+        "detail": "dex_amm invariant_constantProduct(): empty body with only comments"
+      },
+      {
+        "file": "src/orchestrator/harness/__init__.py",
+        "line": -5,
+        "detail": "governance invariant: empty body (check remaining lines)"
+      },
+      {
+        "file": "src/orchestrator/harness/__init__.py",
+        "line": -5,
+        "detail": "bridge invariant: empty body (check remaining lines)"
+      }
+    ],
+    "reproduction_command": "grep -A 10 'function invariant_' src/orchestrator/harness/__init__.py | grep -c 'assert\\|require\\|revert'",
+    "observed_output": "4 of 4 non-trivial archetype invariants have function bodies with only comments, no assertions",
+    "expected_behavior": "Every generated invariant function must contain at least one assertion (assertEq, assertTrue, assertGe, etc.)",
+    "actual_behavior": "The _get_archetype_invariants() method generates function bodies with only Solidity comments explaining what the function should do. No assertions are emitted. The functions compile successfully but do nothing \u2014 a fuzzer running against them will never find a violation.",
+    "root_cause": "The harness generator was implemented as a scaffold/placeholder. The invariant logic was noted in comments but never translated into actual assertions.",
+    "production_impact": "A fuzzing campaign can report 'successful testing' while executing no meaningful property. False-negative results.",
+    "downstream_consequences": "Fuzzing reports are meaningless for lending, DEX, governance, and bridge protocols. The harness generator produces decorative but non-functional tests.",
+    "specific_remediation": "Never emit an empty invariant function. Either generate a real assertion or produce INCOMPATIBLE_INVARIANT. For each archetype, the harness must contain at least one assertEq() or assertTrue() call. Remove or replace commented-only function bodies.",
+    "files_to_modify": [
+      "src/orchestrator/harness/__init__.py"
+    ],
+    "validation_method": "grep -r 'function invariant_' src/orchestrator/harness/__init__.py and verify every function has at least one assertion keyword.",
+    "required_tests": [
+      "test_lending_harness_has_assertion",
+      "test_dex_harness_has_assertion",
+      "test_governance_harness_has_assertion",
+      "test_bridge_harness_has_assertion",
+      "test_harness_rejects_unsupported_archetype"
+    ],
+    "acceptance_criteria": "Every generated invariant function has at least one assertion. Unsupported archetypes produce INCOMPATIBLE_INVARIANT.",
+    "dependencies": [
+      "F-006"
+    ],
+    "blocking_relationships": [],
+    "residual_risk": "High \u2014 this is a core functionality gap. The harness generator is one of the pipeline's primary value propositions."
+  },
+  {
+    "finding_id": "F-008",
+    "section": "Harness Generation",
+    "title": "ERC-4626 invariant totalAssets() >= 0 is tautologically true for uint256",
+    "evidence_state": "CONFIRMED",
+    "severity": "P0",
+    "priority": "CRITICAL",
+    "affected_files": [
+      "src/orchestrator/harness/__init__.py"
+    ],
+    "exact_locations": [
+      {
+        "file": "src/orchestrator/harness/__init__.py",
+        "line": 129,
+        "detail": "assertTrue(target.totalAssets() >= 0, 'totalAssets underflow')"
+      }
+    ],
+    "reproduction_command": "Assertion can never fail because totalAssets() returns uint256, which is always >= 0 by definition",
+    "observed_output": "assertTrue(target.totalAssets() >= 0) \u2014 always true for any uint256 return value",
+    "expected_behavior": "The invariant must test a meaningful property that can actually fail when the invariant is violated",
+    "actual_behavior": "Line 129: assertTrue(target.totalAssets() >= 0, 'totalAssets underflow'). Since Solidity's totalAssets() returns uint256, the expression totalAssets() >= 0 is always true. This assertion can never fail, regardless of the contract's state.",
+    "root_cause": "The invariant was written as a placeholder to demonstrate the harness format, not as a real testable property.",
+    "production_impact": "False confidence in invariant testing. A fuzzer can run for hours, find no violations, and the report says 'ERC-4626 invariant verified' \u2014 but the invariant was never testable.",
+    "downstream_consequences": "Invalid test results. The tautological invariant passes for every contract, including broken ones.",
+    "specific_remediation": "Replace with a meaningful assertion, e.g.: assertGe(target.totalAssets(), target.convertToShares(target.balanceOf(address(this)))), or remove the ERC-4626 invariant entirely until a real one is implemented.",
+    "files_to_modify": [
+      "src/orchestrator/harness/__init__.py"
+    ],
+    "validation_method": "Verify the replacement assertion can actually fail when the invariant is violated (e.g., by manipulating asset balances).",
+    "required_tests": [
+      "test_erc4626_invariant_meaningful",
+      "test_erc4626_tautology_removed"
+    ],
+    "acceptance_criteria": "The ERC-4626 invariant is either a meaningful assertion that can fail, or removed.",
+    "dependencies": [
+      "F-006"
+    ],
+    "blocking_relationships": [],
+    "residual_risk": "Low \u2014 single-line change with clear fix."
+  },
+  {
+    "finding_id": "F-009",
+    "section": "PoC Generation and Human Review",
+    "title": "PoC runner returns True for both PASSED and FAILED test outcomes",
+    "evidence_state": "CONFIRMED",
+    "severity": "P0",
+    "priority": "CRITICAL",
+    "affected_files": [
+      "src/orchestrator/poc/__init__.py"
+    ],
+    "exact_locations": [
+      {
+        "file": "src/orchestrator/poc/__init__.py",
+        "line": -1,
+        "detail": "if 'PASSED' in stdout and 'FAILED' not in stdout: return True, ..."
+      },
+      {
+        "file": "src/orchestrator/poc/__init__.py",
+        "line": -6,
+        "detail": "elif 'FAILED' in stdout: return True, ..."
+      }
+    ],
+    "reproduction_command": "Both branches return True. A test that passes (no exploit) and a test that fails (compilation error or unrelated revert) both produce reproduction=true.",
+    "observed_output": "PoC reproduction always returns True when the test produces any output",
+    "expected_behavior": "A PoC is reproduced only when: (1) the exact expected test passes, (2) preconditions are asserted, (3) exploit sequence executes, (4) claimed impact is asserted, (5) patched target does not reproduce",
+    "actual_behavior": "Lines 212-213: PASSED path returns True (test passed = baseline OK, but this is not a reproduction). Lines 214-220: FAILED path returns True (test failed = reproduction confirmed, even if the failure is from a compilation error or unrelated revert). Both code paths return reproduction=True for fundamentally different outcomes.",
+    "root_cause": "The PoC verification logic conflates 'test produces output' with 'vulnerability was reproduced'. The PASSED branch should return False (a passing test means the PoC did NOT trigger the vulnerability). The FAILED branch should only return True if the failure is from the expected exploit assertion, not from compilation errors or unrelated reverts.",
+    "production_impact": "The system can falsely classify compilation errors, unrelated reverts, broken test scaffolds, and empty passing tests as reproduced vulnerabilities.",
+    "downstream_consequences": "False confirmed vulnerabilities. Invalid bug-bounty reports. Broken trust model.",
+    "specific_remediation": "PASSED must return False (test passing = vulnerability not reproduced). FAILED must verify the failure is from the expected assertion/exploit, not from a compilation error or unrelated revert. Add pre-condition checks before the test run.",
+    "files_to_modify": [
+      "src/orchestrator/poc/__init__.py"
+    ],
+    "validation_method": "Run PoC with a test that passes (empty scaffold). Verify reproduction=false. Run PoC with a test that fails from a compilation error. Verify reproduction=false.",
+    "required_tests": [
+      "test_poc_passing_test_not_reproduced",
+      "test_poc_compilation_error_not_reproduced",
+      "test_poc_unrelated_revert_not_reproduced",
+      "test_poc_genuine_exploit_reproduced"
+    ],
+    "acceptance_criteria": "A PoC is reproduced only when the exact exploit assertion fails. Empty scaffolds, compilation errors, and unrelated reverts return reproduction=false.",
+    "dependencies": [],
+    "blocking_relationships": [
+      "F-010",
+      "F-011"
+    ],
+    "residual_risk": "Medium \u2014 the fix requires careful test-output parsing to distinguish expected failures from unrelated failures."
+  },
+  {
+    "finding_id": "F-010",
+    "section": "Testing",
+    "title": "Known-positive test accepts any Slither warning when exact reentrancy rule is absent",
+    "evidence_state": "CONFIRMED",
+    "severity": "P0",
+    "priority": "CRITICAL",
+    "affected_files": [
+      "tests/e2e/test_vertical_slice_1.py"
+    ],
+    "exact_locations": [
+      {
+        "file": "tests/e2e/test_vertical_slice_1.py",
+        "lines": -8,
+        "detail": "Fallback: if reentrancy not found, accept any Slither warning as a soft pass"
+      }
+    ],
+    "reproduction_command": "Run test_vertical_slice_vulnerable() with a fixture that produces non-reentrancy Slither warnings only. The test still passes.",
+    "observed_output": "If reentrancy-eth is not detected, the test falls back to accepting any Slither warning (line 174-176): 'if len(deduped) > 0: print('\u2705 At least one Slither warning produced')'",
+    "expected_behavior": "The vulnerable fixture test MUST require the exact reentrancy-eth rule ID, not any Slither warning",
+    "actual_behavior": "Lines 170-176: If the exact reentrancy detector is not found, the code checks if ANY Slither warning was produced. If so, it prints a soft-pass message and sets reentrancy_found=True. This means a naming-style warning would pass the reentrancy test.",
+    "root_cause": "The test was designed to be resilient to detector changes. The fallback was added to prevent test flakiness if Slither renames rules, but it inadvertently accepts any unrelated warning as a valid reentrancy detection.",
+    "production_impact": "The pipeline's primary end-to-end test can pass even when the vulnerable fixture is not actually analyzed for the intended vulnerability class.",
+    "downstream_consequences": "False confidence in pipeline correctness. A regression in Slither's reentrancy detection would not be caught by the test suite.",
+    "specific_remediation": "Replace the fallback with an exact rule ID assertion: assert 'reentrancy-eth' in [f.get('tool', {}).get('rule_id', '') for f in deduped], 'Must detect reentrancy-eth in vulnerable fixture'. Remove the soft-pass fallback.",
+    "files_to_modify": [
+      "tests/e2e/test_vertical_slice_1.py"
+    ],
+    "validation_method": "Run the test against a fixture that only produces non-reentrancy Slither warnings. The test must fail.",
+    "required_tests": [
+      "test_vulnerable_fixture_requires_reentrancy_eth"
+    ],
+    "acceptance_criteria": "The vulnerable fixture test requires exact rule_id 'reentrancy-eth' in the findings. No fallback to 'any warning'.",
+    "dependencies": [
+      "F-005 (schema validation must work first)"
+    ],
+    "blocking_relationships": [],
+    "residual_risk": "Low \u2014 single assertion change."
+  },
+  {
+    "finding_id": "F-011",
+    "section": "Testing",
+    "title": "Patched test does not assert absence of reentrancy-detector rule",
+    "evidence_state": "CONFIRMED",
+    "severity": "P0",
+    "priority": "CRITICAL",
+    "affected_files": [
+      "tests/e2e/test_vertical_slice_1.py"
+    ],
+    "exact_locations": [
+      {
+        "file": "tests/e2e/test_vertical_slice_1.py",
+        "lines": -5,
+        "detail": "Prints warning if reentrancy found but does NOT assert it must be absent"
+      }
+    ],
+    "reproduction_command": "Run test_vertical_slice_patched(). Even if reentrancy is detected, the test passes because there is no assertion.",
+    "observed_output": "Line 272: '\u26a0\ufe0f Reentrancy still flagged in patched version: ...' \u2014 this is a print statement, not an assertion. The test passes regardless.",
+    "expected_behavior": "The patched fixture test MUST assert that reentrancy-eth is NOT present in the findings",
+    "actual_behavior": "Lines 270-275: If reentrancy is found in the patched fixture, a warning is printed but no assertion is raised. The test passes regardless of whether reentrancy is detected or not. The patched control provides no protection against regression.",
+    "root_cause": "The test was designed to be informational only ('let's see what the patched version produces') rather than a rigorous negative control.",
+    "production_impact": "A regression that reintroduces the reentrancy vulnerability in the patched fixture would NOT be caught. The pipeline has no verifiable patched-negative test.",
+    "downstream_consequences": "The pipeline's regression detection is broken. Patched fixtures cannot be trusted as evidence of mitigation.",
+    "specific_remediation": "Add an explicit assertion: assert 'reentrancy-eth' not in [f.get('tool', {}).get('rule_id', '') for f in valid], 'Reentrancy should NOT be detected in patched fixture'. The test must fail if reentrancy-eth is found in the patched version.",
+    "files_to_modify": [
+      "tests/e2e/test_vertical_slice_1.py"
+    ],
+    "validation_method": "Run the test after the fix. If Slither detects reentrancy in the patched fixture, the test must fail.",
+    "required_tests": [
+      "test_patched_fixture_rejects_reentrancy_eth"
+    ],
+    "acceptance_criteria": "The patched fixture test asserts that rule_id 'reentrancy-eth' is absent. A regression that reintroduces reentrancy causes test failure.",
+    "dependencies": [],
+    "blocking_relationships": [],
+    "residual_risk": "Low \u2014 single assertion addition."
+  },
+  {
+    "finding_id": "F-012",
+    "section": "CI/CD",
+    "title": "CI working-directory set to /workspace which does not exist in GitHub Actions",
+    "evidence_state": "CONFIRMED",
+    "severity": "P0",
+    "priority": "CRITICAL",
+    "affected_files": [
+      ".github/workflows/ci.yml"
+    ],
+    "exact_locations": [
+      {
+        "file": ".github/workflows/ci.yml",
+        "line": 14,
+        "detail": "working-directory: /workspace"
+      }
+    ],
+    "reproduction_command": "GitHub Actions does not create /workspace. The checkout step places the repo at ${{ github.workspace }} (typically /home/runner/work/repo/repo).",
+    "observed_output": "CI workflow fails because /workspace directory does not exist",
+    "expected_behavior": "working-directory should reference the actual GitHub Actions workspace path",
+    "actual_behavior": "Line 14: working-directory: /workspace. GitHub Actions checks out the repository to $GITHUB_WORKSPACE (default: /home/runner/work/repo/repo), not /workspace. No step creates or populates /workspace.",
+    "root_cause": "The workflow was written with a hardcoded path that only exists in a local development container, not in the GitHub Actions runner environment.",
+    "production_impact": "CI can fail before executing installation or tests. The workflow is currently non-functional in GitHub Actions.",
+    "downstream_consequences": "No automated CI verification. All releases must be manually verified.",
+    "specific_remediation": "Remove the working-directory override entirely, or use working-directory: ${{ github.workspace }}.",
+    "files_to_modify": [
+      ".github/workflows/ci.yml"
+    ],
+    "validation_method": "Push the workflow to GitHub Actions; verify the checkout step succeeds and the working directory is correct.",
+    "required_tests": [
+      "CI workflow run on push"
+    ],
+    "acceptance_criteria": "CI workflow runs without 'directory not found' errors. All steps execute in the correct workspace.",
+    "dependencies": [],
+    "blocking_relationships": [
+      "F-013",
+      "F-014"
+    ],
+    "residual_risk": "Low \u2014 single-line change."
+  },
+  {
+    "finding_id": "F-013",
+    "section": "CI/CD",
+    "title": "Unconditional CI success output: 'echo CI \u2705 \u2014 all tests passed' regardless of test results",
+    "evidence_state": "CONFIRMED",
+    "severity": "P0",
+    "priority": "CRITICAL",
+    "affected_files": [
+      ".github/workflows/ci.yml"
+    ],
+    "exact_locations": [
+      {
+        "file": ".github/workflows/ci.yml",
+        "line": 64,
+        "detail": "run: echo 'CI \u2705 \u2014 all tests passed'"
+      }
+    ],
+    "reproduction_command": "The echo statement is unconditional. It prints success regardless of whether previous steps failed or exited nonzero.",
+    "observed_output": "CI output always ends with 'CI \u2705 \u2014 all tests passed' regardless of actual test results",
+    "expected_behavior": "CI status must be determined by step exit codes, not by hardcoded echo statements",
+    "actual_behavior": "Line 64: run: echo 'CI \u2705 \u2014 all tests passed'. This step executes unconditionally and prints a success message regardless of what happened in previous steps. GitHub Actions checks the exit code of each step, but the echo statement itself exits 0, providing no signal of failure.",
+    "root_cause": "The echo was added as a visual indicator during development but was never made conditional on actual test results.",
+    "production_impact": "CI can produce a false-green release. The echo statement always prints success even when tests fail.",
+    "downstream_consequences": "Release automation that depends on CI status will release broken code. Manual reviewers see 'all tests passed' and may approve without checking actual test output.",
+    "specific_remediation": "Remove the unconditional echo statement entirely. CI status is determined by step exit codes. If a summary line is desired, use a conditional step: if: success() / run: echo 'CI \u2014 all tests passed'.",
+    "files_to_modify": [
+      ".github/workflows/ci.yml"
+    ],
+    "validation_method": "Deliberately introduce a failing test; verify CI shows failure. The unconditional echo must not be present.",
+    "required_tests": [
+      "CI fails on failing test"
+    ],
+    "acceptance_criteria": "No unconditional success output. CI status is determined by step exit codes.",
+    "dependencies": [
+      "F-012"
+    ],
+    "blocking_relationships": [],
+    "residual_risk": "Low \u2014 single-line deletion."
+  },
+  {
+    "finding_id": "F-014",
+    "section": "CLI and Orchestration",
+    "title": "E2E test __main__ section crashes with TypeError: len(None)",
+    "evidence_state": "CONFIRMED",
+    "severity": "P0",
+    "priority": "CRITICAL",
+    "affected_files": [
+      "tests/e2e/test_vertical_slice_1.py"
+    ],
+    "exact_locations": [
+      {
+        "file": "tests/e2e/test_vertical_slice_1.py",
+        "line": 199,
+        "detail": "return None (test_vertical_slice_vulnerable)"
+      },
+      {
+        "file": "tests/e2e/test_vertical_slice_1.py",
+        "line": 293,
+        "detail": "return None (test_vertical_slice_patched)"
+      },
+      {
+        "file": "tests/e2e/test_vertical_slice_1.py",
+        "line": 311,
+        "detail": "len(vuln_findings) \u2014 TypeError on None"
+      }
+    ],
+    "reproduction_command": "PYTHONPATH=src python3 tests/e2e/test_vertical_slice_1.py; echo $?",
+    "observed_output": "Exit code 1. Traceback: TypeError: object of type 'NoneType' has no len()",
+    "expected_behavior": "The test script should exit 0 when both test functions pass, or the __main__ section should be removed",
+    "actual_behavior": "Both test functions execute successfully and print PASSED assertions. However, both functions return None (explicitly at lines 199 and 293). The __main__ section (lines 295-314) calls len(vuln_findings) at line 311, which raises TypeError because vuln_findings is None. The script exits with code 1 despite the tests passing.",
+    "root_cause": "The test functions were designed to be called from pytest (which doesn't use return values) but the __main__ section assumes they return finding lists. The __main__ section was never updated to match the functions' actual return behavior.",
+    "production_impact": "The E2E script exits 1 even when all tests pass. This prevents automated CI integration that depends on the script's exit code.",
+    "downstream_consequences": "CI integration of the E2E test suite is broken. The script cannot be used as a standalone verification tool.",
+    "specific_remediation": "Remove the __main__ section entirely. Run the test via pytest only: 'python3 -m pytest tests/e2e/test_vertical_slice_1.py -v'.",
+    "files_to_modify": [
+      "tests/e2e/test_vertical_slice_1.py"
+    ],
+    "validation_method": "python3 -m pytest tests/e2e/test_vertical_slice_1.py -v must exit 0 with both tests passing.",
+    "required_tests": [
+      "pytest tests/e2e/test_vertical_slice_1.py"
+    ],
+    "acceptance_criteria": "The test file has no __main__ section. pytest is the only execution path.",
+    "dependencies": [
+      "F-010",
+      "F-011"
+    ],
+    "blocking_relationships": [],
+    "residual_risk": "Low \u2014 deletion of 19 lines."
+  },
+  {
+    "finding_id": "F-015",
+    "section": "Sandbox and Container Security",
+    "title": "Sandbox module exists but is not used by build executor or adapter base class",
+    "evidence_state": "CONFIRMED",
+    "severity": "P0",
+    "priority": "CRITICAL",
+    "affected_files": [
+      "src/orchestrator/jobs/sandbox.py",
+      "src/orchestrator/build/__init__.py",
+      "src/orchestrator/adapters/base_adapter.py"
+    ],
+    "exact_locations": [
+      {
+        "file": "src/orchestrator/build/__init__.py",
+        "line": -5,
+        "detail": "subprocess.run() directly, no sandbox"
+      },
+      {
+        "file": "src/orchestrator/adapters/base_adapter.py",
+        "line": -4,
+        "detail": "subprocess.run() directly, no sandbox"
+      },
+      {
+        "file": "src/orchestrator/jobs/sandbox.py",
+        "line": -331,
+        "detail": "SandboxManager exists but is never called from build or adapter code"
+      }
+    ],
+    "reproduction_command": "grep -r 'sandbox\\|run_in_sandbox\\|SandboxManager' src/orchestrator/build/__init__.py src/orchestrator/adapters/base_adapter.py",
+    "observed_output": "No references to sandbox in build or adapter code",
+    "expected_behavior": "All target-controlled execution (build, adapters, harness compilation) must run through the sandbox",
+    "actual_behavior": "SandboxManager exists at src/orchestrator/jobs/sandbox.py with full Docker integration but is never imported or called from the build executor (src/orchestrator/build/__init__.py) or the adapter base class (src/orchestrator/adapters/base_adapter.py). Both use bare subprocess.run() directly on the host.",
+    "root_cause": "The sandbox module was implemented as a separate component but was never integrated into the execution pipeline. The build and adapter modules were written independently and never wired to the sandbox.",
+    "production_impact": "All target-controlled code executes directly on the host with full access to secrets, filesystem, and network. No isolation.",
+    "downstream_consequences": "A malicious repository, dependency hook, compiler plugin, or PoC can access host secrets, SSH keys, cloud credentials, other jobs, Docker socket, arbitrary network destinations, and the host filesystem.",
+    "specific_remediation": "Route all build and adapter execution through SandboxManager.run_in_sandbox(). The use_sandbox bypass flag must default to False (enforcing sandbox). Add environment allowlisting. Enforce read-only root filesystem, dropped capabilities, no NET_RAW, PID/CPU/RAM/disk limits, strict seccomp profile, no Docker socket, isolated user namespace, immutable image digest, ephemeral work volume, mediated RPC proxy.",
+    "files_to_modify": [
+      "src/orchestrator/build/__init__.py",
+      "src/orchestrator/adapters/base_adapter.py",
+      "src/orchestrator/jobs/sandbox.py"
+    ],
+    "validation_method": "After integration: verify that subprocess.run() is not called directly in build or adapter code. All execution goes through sandbox.",
+    "required_tests": [
+      "test_build_runs_in_sandbox",
+      "test_adapter_runs_in_sandbox",
+      "test_sandbox_rejects_host_secrets",
+      "test_sandbox_denies_network",
+      "test_sandbox_denies_docker_socket"
+    ],
+    "acceptance_criteria": "No bare subprocess.run() in adapter or build code without sandbox mediation. All target-controlled execution uses the sandbox.",
+    "dependencies": [],
+    "blocking_relationships": [
+      "F-016"
+    ],
+    "residual_risk": "High \u2014 this is a major architectural integration. The sandbox module exists but was never wired in."
+  },
+  {
+    "finding_id": "F-016",
+    "section": "Adapter Execution Framework",
+    "title": "Full host environment inherited by target-controlled processes",
+    "evidence_state": "CONFIRMED",
+    "severity": "P0",
+    "priority": "CRITICAL",
+    "affected_files": [
+      "src/orchestrator/adapters/base_adapter.py",
+      "src/orchestrator/build/__init__.py"
+    ],
+    "exact_locations": [
+      {
+        "file": "src/orchestrator/adapters/base_adapter.py",
+        "line": -4,
+        "detail": "subprocess.run(..., env=None) \u2014 inherits full host environment"
+      },
+      {
+        "file": "src/orchestrator/build/__init__.py",
+        "line": -5,
+        "detail": "subprocess.run(..., env=None) \u2014 inherits full host environment"
+      }
+    ],
+    "reproduction_command": "Environment variables set in the host os.environ are visible to the subprocess. No env parameter is passed to subprocess.run().",
+    "observed_output": "All host environment variables, including secrets in environment variables, are inherited by the child process",
+    "expected_behavior": "Only explicitly allowlisted environment variables should be passed to target-controlled processes",
+    "actual_behavior": "Both build/__init__.py and base_adapter.py call subprocess.run() without specifying an env parameter. This means the full host environment (including PATH, HOME, API keys, SSH agent, cloud credentials, tokens) is inherited by the target-controlled subprocess.",
+    "root_cause": "Security hardening was deferred. The subprocess calls were written without considering environment isolation.",
+    "production_impact": "All host secrets exposed to target-controlled code. A malicious build script, compiler plugin, or analyzer can read all environment variables.",
+    "downstream_consequences": "Credential theft. Cloud-resource access. Data exfiltration through RPC connections.",
+    "specific_remediation": "Define an environment allowlist (PATH, HOME, RPC_URL, etc.). Pass only allowlisted variables to subprocess.run(). Use the merged env dict from the build executor (which already creates a merged env but doesn't pass it).",
+    "files_to_modify": [
+      "src/orchestrator/adapters/base_adapter.py",
+      "src/orchestrator/build/__init__.py"
+    ],
+    "validation_method": "Set a test secret in os.environ; verify the subprocess cannot read it.",
+    "required_tests": [
+      "test_adapter_env_denies_secrets",
+      "test_build_env_denies_secrets",
+      "test_adapter_env_allows_required_vars"
+    ],
+    "acceptance_criteria": "Only explicitly allowlisted environment variables reach the subprocess. No os.environ leakage.",
+    "dependencies": [
+      "F-015"
+    ],
+    "blocking_relationships": [],
+    "residual_risk": "Medium \u2014 requires careful allowlist definition to avoid breaking tool functionality."
+  },
+  {
+    "finding_id": "F-017",
+    "section": "Documentation and Status",
+    "title": "Phase acceptance claims all 45 criteria pass, but multiple criteria are broken",
+    "evidence_state": "CONFIRMED",
+    "severity": "P0",
+    "priority": "CRITICAL",
+    "affected_files": [
+      "docs/phase-acceptance.md"
+    ],
+    "exact_locations": [
+      {
+        "file": "docs/phase-acceptance.md",
+        "line": -65,
+        "detail": "All 45 criteria marked \u2705"
+      },
+      {
+        "file": "docs/phase-acceptance.md",
+        "line": 67,
+        "detail": "Phase 1 Status: \u2705 COMPLETE / All 45 acceptance criteria pass"
+      }
+    ],
+    "reproduction_command": "grep -c '\u2705' docs/phase-acceptance.md",
+    "observed_output": "45 checkmarks, all criteria marked as passing",
+    "expected_behavior": "Status must be generated from the authoritative acceptance ledger, not manually typed",
+    "actual_behavior": "All 45 criteria are marked \u2705 (passing). However: criterion 1 (remote intake) is broken (F-002), criterion 5 (eligibility) is broken (F-001), criterion 43 (sandbox) is broken (F-015). The status is manually typed, not derived from test evidence.",
+    "root_cause": "The phase-acceptance document was written as a design specification, not a verified status report. Statuses were set during development and never updated to reflect actual implementation state.",
+    "production_impact": "Invalid deployment decisions. False confidence in security controls. Inability to determine actual implementation status.",
+    "downstream_consequences": "Misleading evidence for users, maintainers, or reviewers. Phases 2 and 3 built on failed Phase 1 dependencies.",
+    "specific_remediation": "Replace all \u2705 markers with actual status from the acceptance ledger. Use: NOT_IMPLEMENTED, IMPLEMENTED_UNTESTED, UNIT_VALIDATED, INTEGRATION_VALIDATED, RUNTIME_VALIDATED, FAILED, BLOCKED, NOT_APPLICABLE. Phase 1 must be marked as BLOCKED due to F-001, F-002, F-003, F-012, F-013, F-014, F-015.",
+    "files_to_modify": [
+      "docs/phase-acceptance.md"
+    ],
+    "validation_method": "No phase is marked \u2705 COMPLETE while any mandatory criterion is failed or unverified. Status is derived from the acceptance ledger.",
+    "required_tests": [
+      "generate_acceptance_ledger"
+    ],
+    "acceptance_criteria": "No phase is complete while any mandatory criterion is failed or unverified. README status is generated from the authoritative acceptance ledger.",
+    "dependencies": [
+      "F-001",
+      "F-002",
+      "F-003",
+      "F-012",
+      "F-013",
+      "F-014",
+      "F-015"
+    ],
+    "blocking_relationships": [
+      "F-018"
+    ],
+    "residual_risk": "Low \u2014 this is a documentation fix. The underlying issues (F-001 through F-015) are the real blockers."
+  },
+  {
+    "finding_id": "F-018",
+    "section": "Documentation and Status",
+    "title": "Agent task ledger uses global test count instead of per-component evidence",
+    "evidence_state": "CONFIRMED",
+    "severity": "P0",
+    "priority": "CRITICAL",
+    "affected_files": [
+      "docs/agent-task-ledger.md"
+    ],
+    "exact_locations": [
+      {
+        "file": "docs/agent-task-ledger.md",
+        "lines": -25,
+        "detail": "Every task marked 'DONE' with verification '39 tests pass'"
+      }
+    ],
+    "reproduction_command": "grep -c 'DONE' docs/agent-task-ledger.md",
+    "observed_output": "All tasks marked DONE; verification references a global test count instead of component-specific evidence",
+    "expected_behavior": "Each task must reference the specific test(s) that prove the component works, not a global test count",
+    "actual_behavior": "Almost every task is marked 'DONE \u2014 39 tests pass' (or '40 tests pass'). The verification is a global test count, not component-specific evidence. Broken components (intake, eligibility, build resolver, sandbox, PoC generation, phase acceptance) are also marked DONE.",
+    "root_cause": "The task ledger was updated by appending the global test count to each task entry rather than running per-component verification.",
+    "production_impact": "The task ledger cannot be used for release decisions. Broken components are invisible in the status report.",
+    "downstream_consequences": "Stakeholders see all tasks as complete. Release decisions based on the ledger are invalid.",
+    "specific_remediation": "Replace global test count with per-component evidence. Each DONE row must reference the specific test ID(s) that prove the component works. Add a test_command field. Use the same status values as the acceptance ledger.",
+    "files_to_modify": [
+      "docs/agent-task-ledger.md"
+    ],
+    "validation_method": "No DONE task references a global test count. Every DONE task has a test ID, test command, or evidence artifact reference.",
+    "required_tests": [
+      "generate_agent_task_ledger"
+    ],
+    "acceptance_criteria": "Every DONE task has per-component evidence. No global test count references.",
+    "dependencies": [
+      "F-017"
+    ],
+    "blocking_relationships": [],
+    "residual_risk": "Low \u2014 documentation fix."
+  },
+  {
+    "finding_id": "F-019",
+    "section": "CI/CD",
+    "title": "CI does not install the application package (pip install -e .)",
+    "evidence_state": "CONFIRMED",
+    "severity": "P1",
+    "priority": "HIGH",
+    "affected_files": [
+      ".github/workflows/ci.yml"
+    ],
+    "exact_locations": [
+      {
+        "file": ".github/workflows/ci.yml",
+        "lines": -1,
+        "detail": "Installs tool packages but not hermes-pipeline"
+      }
+    ],
+    "reproduction_command": "CI workflow shows no 'pip install -e .' step",
+    "expected_behavior": "CI must install the application package and all test dependencies",
+    "actual_behavior": "CI installs halmos, eth-wake, slither-analyzer, aderyn but does not install hermes-pipeline itself. All imports depend on PYTHONPATH=src or sys.path hacks.",
+    "root_cause": "The application package was not added to the CI install step. Development relies on PYTHONPATH environment variable.",
+    "production_impact": "Imports depend on source-tree layout rather than package correctness. Package installation is not validated by CI.",
+    "specific_remediation": "Add 'pip install -e .' to the CI install step after tool installation.",
+    "files_to_modify": [
+      ".github/workflows/ci.yml"
+    ],
+    "validation_method": "CI workflow must install the package and run tests without PYTHONPATH.",
+    "required_tests": [
+      "CI workflow run"
+    ],
+    "acceptance_criteria": "CI runs without PYTHONPATH hacks.",
+    "dependencies": [
+      "F-012"
+    ],
+    "blocking_relationships": [],
+    "residual_risk": "Low"
+  },
+  {
+    "finding_id": "F-020",
+    "section": "Packaging",
+    "title": "No runtime dependencies declared in pyproject.toml",
+    "evidence_state": "CONFIRMED",
+    "severity": "P1",
+    "priority": "HIGH",
+    "affected_files": [
+      "pyproject.toml"
+    ],
+    "exact_locations": [
+      {
+        "file": "pyproject.toml",
+        "lines": -4,
+        "detail": "[project] has no dependencies list"
+      }
+    ],
+    "reproduction_command": "pip install -e . in a clean environment; import jsonschema fails",
+    "expected_behavior": "All runtime dependencies must be declared in pyproject.toml [project.dependencies]",
+    "actual_behavior": "pyproject.toml has no dependencies list. The project requires jsonschema for schema validation, but it's not declared. pip install -e . does not install any application dependencies.",
+    "specific_remediation": "Add dependencies = ['jsonschema>=4.0'] to pyproject.toml. Add optional-dependencies dev = ['pytest', 'ruff', 'mypy'].",
+    "files_to_modify": [
+      "pyproject.toml"
+    ],
+    "validation_method": "pip install -e . in a clean environment installs jsonschema.",
+    "required_tests": [
+      "test_package_install"
+    ],
+    "acceptance_criteria": "pip install -e . installs all runtime dependencies in a clean environment.",
+    "dependencies": [
+      "F-005"
+    ],
+    "blocking_relationships": [],
+    "residual_risk": "Low"
+  },
+  {
+    "finding_id": "F-021",
+    "section": "Packaging",
+    "title": "No root LICENSE file despite ISC license claim in README",
+    "evidence_state": "CONFIRMED",
+    "severity": "P1",
+    "priority": "HIGH",
+    "affected_files": [
+      "README.md",
+      "pyproject.toml"
+    ],
+    "exact_locations": [
+      {
+        "file": "README.md",
+        "detail": "ISC license mentioned in README"
+      },
+      {
+        "file": "pyproject.toml",
+        "detail": "No license field"
+      }
+    ],
+    "reproduction_command": "ls LICENSE; grep -c 'license' pyproject.toml",
+    "expected_behavior": "ISC license file must exist at repo root. pyproject.toml must reference it.",
+    "actual_behavior": "README.md mentions ISC license but no LICENSE file exists. pyproject.toml has no license field.",
+    "specific_remediation": "Create LICENSE file with ISC license text. Add 'license = {file = \"LICENSE\"}' to pyproject.toml.",
+    "files_to_modify": [
+      "LICENSE (new)",
+      "pyproject.toml"
+    ],
+    "validation_method": "head -3 LICENSE shows ISC license.",
+    "required_tests": [],
+    "acceptance_criteria": "LICENSE file exists at repo root with ISC text. pyproject.toml references it.",
+    "dependencies": [],
+    "blocking_relationships": [],
+    "residual_risk": "Low"
+  },
+  {
+    "finding_id": "F-022",
+    "section": "Build Execution",
+    "title": "Foundry build silently uses --via-ir flag, altering the compilation pipeline",
+    "evidence_state": "CONFIRMED",
+    "severity": "P0",
+    "priority": "CRITICAL",
+    "affected_files": [
+      "src/orchestrator/build/__init__.py"
+    ],
+    "exact_locations": [
+      {
+        "file": "src/orchestrator/build/__init__.py",
+        "line": 46,
+        "detail": "['forge', 'build', '--via-ir']"
+      }
+    ],
+    "reproduction_command": "grep '--via-ir' src/orchestrator/build/__init__.py",
+    "observed_output": "forge build --via-ir is hardcoded, not the default forge build",
+    "expected_behavior": "The default build must use 'forge build' without --via-ir to match the target's native configuration",
+    "actual_behavior": "Line 46: ['forge', 'build', '--via-ir']. The --via-ir flag changes the compilation pipeline (Yul IR vs direct Solidity), potentially altering bytecode and behavior. The analyzed build no longer necessarily represents the submitted target configuration.",
+    "specific_remediation": "Use ['forge', 'build'] without --via-ir. Any compatibility override must be separate, explicit, and recorded.",
+    "files_to_modify": [
+      "src/orchestrator/build/__init__.py"
+    ],
+    "validation_method": "Build command logged has no --via-ir unless explicitly opted in.",
+    "required_tests": [
+      "test_build_uses_native_flags"
+    ],
+    "acceptance_criteria": "Native forge build without --via-ir is the default.",
+    "dependencies": [],
+    "blocking_relationships": [
+      "F-015"
+    ],
+    "residual_risk": "Medium \u2014 --via-ir may be needed for some targets. The override must be explicit."
+  },
+  {
+    "finding_id": "F-023",
+    "section": "Build Execution",
+    "title": "Build executor creates merged environment but does not pass it to subprocess",
+    "evidence_state": "CONFIRMED",
+    "severity": "P1",
+    "priority": "HIGH",
+    "affected_files": [
+      "src/orchestrator/build/__init__.py"
+    ],
+    "exact_locations": [
+      {
+        "file": "src/orchestrator/build/__init__.py",
+        "line": -1,
+        "detail": "build_env = {**os.environ, **(env or {})} created but never passed to subprocess.run()"
+      }
+    ],
+    "reproduction_command": "grep -A 5 'build_env' src/orchestrator/build/__init__.py",
+    "observed_output": "build_env is defined but not passed to the subprocess call",
+    "expected_behavior": "The merged environment must be passed to subprocess.run() via the env parameter",
+    "actual_behavior": "Line 30-31: build_env = {**os.environ, **(env or {})} creates a merged environment dict. However, the subprocess.run() calls (lines 46, 68, 87) do not pass env=build_env. The build_env variable is computed but never used.",
+    "specific_remediation": "Pass env=build_env to each subprocess.run() call in the build methods.",
+    "files_to_modify": [
+      "src/orchestrator/build/__init__.py"
+    ],
+    "validation_method": "A custom PATH in env reaches the forge/hardhat/anchor process.",
+    "required_tests": [
+      "test_build_env_propagated"
+    ],
+    "acceptance_criteria": "Custom environment variables in the env parameter reach the child process.",
+    "dependencies": [],
+    "blocking_relationships": [
+      "F-016"
+    ],
+    "residual_risk": "Low"
+  },
+  {
+    "finding_id": "F-024",
+    "section": "Testing",
+    "title": "Schema test does not invoke JSON Schema validator, only manual field checks",
+    "evidence_state": "CONFIRMED",
+    "severity": "P0",
+    "priority": "CRITICAL",
+    "affected_files": [
+      "tests/adapters/test_all_adapters.py"
+    ],
+    "exact_locations": [
+      {
+        "file": "tests/adapters/test_all_adapters.py",
+        "lines": -10,
+        "detail": "test_schema_normalization checks required fields manually, not via jsonschema"
+      }
+    ],
+    "reproduction_command": "grep -A 10 'def test_schema_normalization' tests/adapters/test_all_adapters.py",
+    "observed_output": "Manual field checks: assert 'finding_id' in f, assert 'classification' in f, etc.",
+    "expected_behavior": "Schema tests must use jsonschema.validate() against the declared schema file",
+    "actual_behavior": "test_schema_normalization() checks required fields manually (assert 'finding_id' in f, assert 'classification' in f, etc.) rather than calling jsonschema.validate() against schemas/finding.json. This means the test does not validate UUID format, enum constraints, nested required fields, or reproduction status.",
+    "specific_remediation": "Add a test that calls jsonschema.validate() against schemas/finding.json for each finding.",
+    "files_to_modify": [
+      "tests/adapters/test_all_adapters.py"
+    ],
+    "validation_method": "A finding violating the schema (e.g., invalid reproduction.status) is caught by the test.",
+    "required_tests": [
+      "test_schema_invalid_reproduction_status_rejected"
+    ],
+    "acceptance_criteria": "Schema tests use jsonschema.validate() against the declared schema.",
+    "dependencies": [
+      "F-005"
+    ],
+    "blocking_relationships": [],
+    "residual_risk": "Low"
+  }
+]

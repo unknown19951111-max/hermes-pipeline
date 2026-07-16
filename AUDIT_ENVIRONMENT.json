@@ -1,0 +1,45 @@
+{
+  "audit_timestamp": "2026-07-15T21:53:00-04:00",
+  "repository_path": "/Users/vusek/Documents/Automation_pipeline",
+  "remote_url": "git@github.com:unknown19951111-max/hermes-pipeline.git",
+  "commit_sha": "aa1b60db3b90aae1709271d08bf66f2a750ba9a7",
+  "branch": "master",
+  "working_tree_clean": true,
+  "untracked_files": [
+    "AUDIT_REMEDIATION.md"
+  ],
+  "untracked_diff_hash": "c67c2aa484965d26a2afb7d235e3710f48936d3feaa190d61810325529602f83",
+  "submodule_state": "none",
+  "python_version": "3.13.2 (v3.13.2:4f8bb3947cf, Feb 4 2025, 11:51:10) [Clang 15.0.0 (clang-1500.3.9.4)]",
+  "python_implementation": "CPython",
+  "pip_version": "pip 25.0.1",
+  "operating_system": "macOS 13.7.8",
+  "kernel": "Darwin 22.6.0 (x86_64)",
+  "cpu_architecture": "x86_64",
+  "cpu_count": 4,
+  "hostname": "Stanislavs-iMac.local",
+  "virtual_env": null,
+  "timezone": "America/New_York (UTC-4)",
+  "tool_versions": {
+    "forge": "1.7.1 (commit 4072e48705af9d93e3c0f6e29e93b5e9a40caed8, 2026-05-08)",
+    "slither": "0.11.4",
+    "aderyn": "0.6.8",
+    "echidna": "2.3.2",
+    "halmos": "0.3.3",
+    "hevm": "0.58.0",
+    "wake": "4.22.1",
+    "trident": "0.12.0",
+    "medusa": "NOT_INSTALLED",
+    "anchor": "NOT_INSTALLED"
+  },
+  "pytest_version": "7.4.4",
+  "audit_applies_to": "commit aa1b60db3b90aae1709271d08bf66f2a750ba9a7 + untracked diff AUDIT_REMEDIATION.md (previous audit artifact, excluded from scope)",
+  "agent_roles": [
+    "auditor",
+    "verifier",
+    "evidence_collector",
+    "remediation_writer",
+    "QA"
+  ],
+  "agent_count": 5
+}

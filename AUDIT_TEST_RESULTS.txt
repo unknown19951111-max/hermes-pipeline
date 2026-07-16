@@ -1,0 +1,194 @@
+AUDIT TEST RESULTS
+==================
+Audit timestamp: 2026-07-15T21:53:00-04:00
+Repository: /Users/vusek/Documents/Automation_pipeline
+Commit: aa1b60db3b90aae1709271d08bf66f2a750ba9a7
+Operating system: macOS 13.7.8 (Darwin 22.6.0 x86_64)
+Python: 3.13.2
+pytest: 7.4.4
+
+================================================================
+1. PYTEST SUITE (authoritative)
+================================================================
+
+Command: PYTHONPATH=src python3 -m pytest -v --tb=short --junitxml=/tmp/pytest_results_junit.xml
+Exit code: 0
+Duration: 22.038s
+XML: /tmp/audit_pytest_results.xml
+
+Results:
+  Tests: 40
+  Passed: 40
+  Failed: 0
+  Errors: 0
+  Skipped: 0
+  Xfailed: 0
+  Xpassed: 0
+
+All 40 tests VERIFIED_PASS.
+
+Test list (from JUnit XML):
+  tests/adapters/test_all_adapters.py:
+    test_slither_adapter_dependency_check (1.097s)
+    test_slither_adapter_parse_vulnerable (5.302s)
+    test_aderyn_adapter_dependency_check (0.366s)
+    test_aderyn_adapter_parse_vulnerable (1.847s)
+    test_echidna_adapter_dependency_check (0.186s)
+    test_medusa_adapter_dependency_check (0.072s)
+    test_schema_normalization (3.687s)
+    test_schema_normalization_from_fixture (0.001s)
+
+  tests/e2e/test_vertical_slice_1.py:
+    test_vertical_slice_vulnerable (3.944s)
+    test_vertical_slice_patched (3.301s)
+
+  tests/unit/test_classifier.py:
+    test_erc20_classification (0.001s)
+    test_erc4626_classification (0.001s)
+    test_lending_classification (0.001s)
+    test_governance_classification (0.001s)
+    test_bridge_classification (0.001s)
+    test_classify_from_source (0.002s)
+    test_multi_label (0.001s)
+    test_unclassified (0.001s)
+    test_invariant_selection (0.001s)
+
+  tests/unit/test_invariant_registry.py:
+    test_registry_load (0.001s)
+    test_select_for_archetype (0.001s)
+    test_select_multi_archetype (0.001s)
+    test_status_filter (0.001s)
+    test_compatibility_check (0.001s)
+    test_required_deps (0.001s)
+    test_promotion_rules (0.001s)
+    test_get_invariant (0.001s)
+
+  tests/unit/test_phase1_remaining.py:
+    test_poc_generator_detects_sequence (0.001s)
+    test_poc_generates_file (0.107s)
+    test_poc_with_medusa (0.097s)
+    test_review_queue_enqueue (0.002s)
+    test_review_queue_review (0.002s)
+    test_circuit_breaker_trips (0.001s)
+    test_circuit_breaker_isolates_tools (0.000s)
+    test_failure_handler_classification (0.001s)
+    test_failure_handler_retry_policy (0.000s)
+    test_checkpoint_manager (0.002s)
+    test_sandbox_config_generation (0.000s)
+    test_sandbox_manager_dependency_check (0.095s)
+    test_sandbox_direct_run (0.005s)
+
+================================================================
+2. MANUAL TEST SUITES (depth-tier, non-EVM, E2E)
+================================================================
+
+2a. Depth-tier adapter tests
+------------------------------
+Command: PYTHONPATH=src python3 tests/adapters/test_depth_tier.py
+Exit code: 0
+Report: 19/19 pass, Status: PASS
+Results: VERIFIED_PASS
+All 19 tests pass. Exits 0.
+
+Individual tests:
+  PASS Halmos deps
+  PASS Halmos version
+  PASS Halmos cmd build
+  PASS hevm deps
+  PASS hevm version
+  PASS hevm cmd build
+  PASS hevm no output
+  PASS hevm counterexample
+  PASS Wake deps
+  PASS Wake version
+  PASS Wake cmd build
+  PASS Heimdall deps graceful
+  PASS Heimdall version
+  PASS Heimdall cmd build
+  PASS Kontrol deps graceful
+  PASS Kontrol version
+  PASS Kontrol unsupported
+  PASS P2: missing tool graceful
+  PASS P2: optional adapter
+
+2b. Non-EVM adapter tests
+---------------------------
+Command: PYTHONPATH=src python3 tests/adapters/test_non_evm.py
+Exit code: 0
+Report: 25/25 pass, Status: PASS
+Results: VERIFIED_PASS
+All 25 tests pass. Exits 0.
+
+Individual tests:
+  PASS Solana Anchor detect
+  PASS Solana Anchor ecosystem
+  PASS Move Aptos detect
+  PASS Move Aptos ecosystem
+  PASS Move Sui detect
+  PASS Move no framework fallback
+  PASS Move fallback confidence
+  PASS Solana native detect
+  PASS Anchor deps
+  PASS Anchor version
+  PASS Anchor cmd build
+  PASS Solana CLI deps
+  PASS Solana CLI version
+  PASS Solana CLI cmd
+  PASS Solana no findings
+  PASS Trident deps
+  PASS Trident version
+  PASS Aptos deps
+  PASS Aptos cmd build
+  PASS Aptos output parse
+  PASS Sui deps
+  PASS Sui cmd build
+  PASS MoveProver deps
+  PASS MoveProver version
+  PASS MoveProver cmd
+
+2c. E2E vertical slice test
+------------------------------
+Command: PYTHONPATH=src python3 tests/e2e/test_vertical_slice_1.py
+Exit code: 1 (subprocess) / 0 (pytest)
+Results: PARTIALLY_CONFIRMED
+
+The two test functions (test_vertical_slice_vulnerable, test_vertical_slice_patched)
+pass when run via pytest (exit 0, both assertions succeed).
+
+When run directly as a script (__main__ section), the functions execute correctly
+and print PASSED assertions, but the __main__ section crashes with:
+  TypeError: object of type 'NoneType' has no len()
+
+This is because both functions return None (line 199, 293) but __main__ (line 311)
+calls len(vuln_findings) on the None return value.
+
+When run via pytest: exit 0, VERIFIED_PASS for both test functions.
+When run as script: exit 1, VERIFIED_FAIL for the __main__ section.
+
+================================================================
+3. TOOL VERSIONS
+================================================================
+
+forge:      1.7.1 (commit 4072e48705af9d93e3c0f6e29e93b5e9a40caed8, 2026-05-08)
+slither:    0.11.4
+aderyn:     0.6.8
+echidna:    2.3.2
+halmos:     0.3.3
+hevm:       0.58.0
+wake:       4.22.1
+trident:    0.12.0
+medusa:     NOT_INSTALLED
+anchor:     NOT_INSTALLED
+
+================================================================
+4. ENVIRONMENT NOTES
+================================================================
+
+- Python 3.13.2 (system Python from /Library/Frameworks/Python.framework)
+- pytest 7.4.4 (via pyenv shims)
+- No virtualenv active
+- 4 CPU cores available
+- No model downloads, embedding downloads, or package upgrades performed during audit
+- Only environment mutation: PYTHONPATH=src for test execution
+- Working tree: 1 untracked file (AUDIT_REMEDIATION.md from previous audit, excluded)
+- No submodules

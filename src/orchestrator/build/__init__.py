@@ -5,7 +5,11 @@ import os
 import subprocess
 import time
 from pathlib import Path
-from typing import Optional
+from typing import Optional, TYPE_CHECKING
+
+
+if TYPE_CHECKING:
+    from orchestrator.jobs.sandbox import SandboxManager
 
 
 class BuildError(Exception):
@@ -15,9 +19,11 @@ class BuildError(Exception):
 class BuildExecutor:
     """Compiles smart contracts using the detected framework's build system."""
 
-    def __init__(self, repo_path: str, framework: str):
+    def __init__(self, repo_path: str, framework: str,
+                 sandbox: Optional["SandboxManager"] = None):
         self.repo_path = Path(repo_path)
         self.framework = framework
+        self.sandbox = sandbox
 
     def build(self, timeout_s: int = 120, env: Optional[dict] = None) -> tuple[bool, dict, str]:
         """
@@ -29,7 +35,9 @@ class BuildExecutor:
         start = time.time()
         build_env = {**os.environ, **(env or {})}
 
-        if self.framework == "foundry":
+        if self.sandbox and self.sandbox.use_sandbox:
+            return self._build_in_sandbox(timeout_s, build_env)
+        elif self.framework == "foundry":
             return self._build_foundry(timeout_s, build_env)
         elif self.framework == "hardhat":
             return self._build_hardhat(timeout_s, build_env)
@@ -38,15 +46,40 @@ class BuildExecutor:
         else:
             raise BuildError(f"Unsupported framework: {self.framework}")
 
+    def _build_in_sandbox(self, timeout_s: int, env: dict) -> tuple[bool, dict, str]:
+        """Build inside a sandbox container."""
+        _start = time.time()
+        try:
+            exit_code, stdout, stderr = self.sandbox.run_in_sandbox(
+                job_id=f"build-{self.framework}",
+                command=["forge", "build"],
+                work_dir=str(self.repo_path),
+                timeout_s=timeout_s,
+            )
+            log = stdout + stderr
+            manifest = {
+                "tool": "forge",
+                "framework": "foundry",
+                "success": exit_code == 0,
+                "exit_code": exit_code,
+                "duration_seconds": time.time() - _start,
+                "compiler_version": self._extract_solc_version(log),
+                "sandboxed": True,
+            }
+            return exit_code == 0, manifest, log
+        except Exception as e:
+            raise BuildError(f"Sandbox build failed: {e}")
+
     def _build_foundry(self, timeout_s: int, env: dict) -> tuple[bool, dict, str]:
         """Build with Foundry."""
         _start = time.time()
         try:
             r = subprocess.run(
-                ["forge", "build", "--via-ir"],
+                ["forge", "build"],
                 cwd=str(self.repo_path),
                 capture_output=True, text=True,
                 timeout=timeout_s,
+                env=env,
             )
             log = r.stdout + r.stderr
             manifest = {
@@ -72,6 +105,7 @@ class BuildExecutor:
                 cwd=str(self.repo_path),
                 capture_output=True, text=True,
                 timeout=timeout_s,
+                env=env,
             )
             log = r.stdout + r.stderr
             manifest = {
@@ -97,6 +131,7 @@ class BuildExecutor:
                 cwd=str(self.repo_path),
                 capture_output=True, text=True,
                 timeout=timeout_s,
+                env=env,
             )
             log = r.stdout + r.stderr
             manifest = {

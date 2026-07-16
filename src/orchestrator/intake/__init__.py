@@ -26,6 +26,11 @@ class IntakeError(Exception):
     pass
 
 
+class SymlinkIntakeError(IntakeError):
+    """Raised when symlinks are detected in the source tree."""
+    pass
+
+
 class IntakeManifest:
     """Immutable intake manifest for a pipeline job."""
 
@@ -141,14 +146,19 @@ class RepositoryManager:
                 f.stat().st_size for f in repo_path.rglob("*") if f.is_file()
             )
 
-            # Create manifest
+            # Create manifest — derive owner/name from URL
+            url_clean = url.rstrip("/").replace(".git", "")
+            url_parts = url_clean.split("/")
+            owner = url_parts[-2] if len(url_parts) >= 2 else ""
+            name = url_parts[-1] if len(url_parts) >= 1 else ""
+
             manifest = IntakeManifest.create(
                 job_id=job_id,
                 target_type="remote",
                 url=url,
                 branch=branch or "",
-                owner=kwargs.get("owner", ""),
-                name=kwargs.get("name", ""),
+                owner=owner,
+                name=name,
                 commit_sha=commit_sha,
                 size_bytes=size_bytes,
             )
@@ -179,6 +189,15 @@ class RepositoryManager:
         workspace.mkdir(parents=True, exist_ok=True)
 
         try:
+            # SECURITY: Reject all symlinks before copying
+            resolved_source = path.resolve()
+            for entry in resolved_source.rglob("*"):
+                if entry.is_symlink():
+                    raise SymlinkIntakeError(
+                        f"Symlink detected at {entry.name} — target {entry.resolve()}. "
+                        f"Symlinks are not allowed in local intake."
+                    )
+
             # Copy local project to workspace (safe copy)
             dest_path = workspace / "repo"
             shutil.copytree(str(path), str(dest_path), symlinks=False,
@@ -228,79 +247,9 @@ class RepositoryManager:
         if not path.exists() or not path.is_dir():
             return False
 
-        # Check for path traversal attempts
-        resolved = path.resolve()
-        if ".." in str(resolved.relative_to(resolved.parent.parent if resolved.parent.parent else resolved.parent)):
-            return False
-
-        # Check for dangerous symlinks
+        # Check for symlinks — reject all
         for f in path.rglob("*"):
             if f.is_symlink():
-                target = f.resolve()
-                if not str(target).startswith(str(resolved)):
-                    return False
+                return False
 
         return True
-
-
-# Fix for the manifest creation in intake_remote
-def _intake_remote_with_fixed_kwargs(self, url, branch=None, commit=None):
-    """Fixed version that uses proper kwargs."""
-    job_id = str(uuid.uuid4())
-    workspace = self.work_dir / job_id
-    workspace.mkdir(parents=True, exist_ok=True)
-
-    try:
-        clone_cmd = ["git", "clone", "--depth", "1"]
-        if branch:
-            clone_cmd.extend(["--branch", branch])
-        clone_cmd.extend([url, str(workspace / "repo")])
-
-        result = subprocess.run(
-            clone_cmd,
-            capture_output=True,
-            text=True,
-            timeout=RepositoryManager.CLONE_TIMEOUT_S,
-        )
-
-        repo_path = workspace / "repo"
-        if not repo_path.exists():
-            shutil.rmtree(workspace, ignore_errors=True)
-            raise IntakeError(f"Clone failed: {result.stderr.strip()}")
-
-        # Get commit SHA
-        if commit:
-            subprocess.run(["git", "checkout", commit], cwd=repo_path,
-                          capture_output=True, timeout=30)
-
-        result = subprocess.run(["git", "rev-parse", "HEAD"], cwd=repo_path,
-                               capture_output=True, text=True, timeout=10)
-        commit_sha = result.stdout.strip()
-
-        # Size
-        size_bytes = sum(f.stat().st_size for f in repo_path.rglob("*") if f.is_file())
-
-        # Parse owner/name from URL
-        url_parts = url.replace("https://github.com/", "").replace(".git", "").split("/")
-        owner = url_parts[0] if len(url_parts) > 0 else ""
-        name = url_parts[1] if len(url_parts) > 1 else ""
-
-        manifest = IntakeManifest.create(
-            job_id=job_id,
-            target_type="remote",
-            url=url,
-            branch=branch or "",
-            owner=owner,
-            name=name,
-            commit_sha=commit_sha,
-            size_bytes=size_bytes,
-        )
-
-        return job_id, str(repo_path), manifest.to_dict()
-
-    except subprocess.TimeoutExpired:
-        shutil.rmtree(workspace, ignore_errors=True)
-        raise IntakeError(f"Clone timed out after {RepositoryManager.CLONE_TIMEOUT_S}s")
-    except Exception as e:
-        shutil.rmtree(workspace, ignore_errors=True)
-        raise IntakeError(f"Intake failed: {e}")

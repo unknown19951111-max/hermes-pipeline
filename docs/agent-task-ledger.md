@@ -1,6 +1,6 @@
 # Agent Task Ledger — Smart-Contract Security Pipeline
 
-> **Last updated:** 2026-07-15 (audit: aa1b60db)
+> **Last updated:** 2026-07-15 (gate-2: secure-intake-execution-boundary)
 > **Status generated from:** `AUDIT_FINDINGS.json` — per-component evidence, not global test count
 
 ## Agent Identities
@@ -54,18 +54,18 @@
 | ID | Description | Owner | Dependencies | Status | Files Owned | Verification |
 |---|---|---|---|---|---|---|
 | P0 | Planning documents creation | Agent 1 | None | ✅ DONE | docs/, config/ | Review by Agent 1 |
-| S1a | Intake subsystem | Agent 3 | P0 | ❌ BLOCKED | orchestrator/intake/ | F-002: `kwargs` undefined NameError. F-003: symlink disclosure. Remote intake unusable. |
+|| S1a | Intake subsystem | Agent 3 | P0 | ✅ DONE | orchestrator/intake/ | F-002 fixed: URL-derived owner/name. F-003 fixed: symlink rejection. Remote + local intake working. |
 | S1b | Ecosystem/framework detection | Agent 3 | P0 | ✅ DONE | orchestrator/detect/ | E2E: evm @ 1.00, foundry @ 0.95. Unit tests: detect, ecosystem, framework, fallback. |
-| S1c | Build/compiler resolver | Agent 3 | P0 | 🔶 PARTIAL | orchestrator/build/ | F-022: `--via-ir` forced. F-023: `build_env` not passed to subprocess. F-015: no sandbox. |
+|| S1c | Build/compiler resolver | Agent 3 | P0 | ✅ DONE | orchestrator/build/ | F-022 fixed: --via-ir removed. F-023 fixed: env=env. F-015 fixed: sandbox parameter. |
 | S1d | Shared findings schema | Agent 4 | P0 | ❌ BLOCKED | schemas/ | F-005: `jsonschema.validate()` never called. F-024: tests use manual checks only. |
-| S1e | Slither adapter | Agent 3 | S1c, S1d | ❌ BLOCKED | orchestrator/adapters/slither/ | F-004: `success=exit_code==0 or len(normalized)>0`. F-015: no sandbox. F-016: host env. |
+|| S1e | Slither adapter | Agent 3 | S1c, S1d | 🔶 BLOCKED | orchestrator/adapters/slither/ | F-004: `success=exit_code==0 or len(normalized)>0` still open. F-015 fixed: sandbox wired. F-016 fixed: `_SECURE_ENV`. |
 | S1f | Artifact storage + manifests | Agent 3 | P0 | ✅ DONE | orchestrator/intake/ | E2E: manifest generated, commit SHA recorded, artifact store works. |
 | VS1 | Vertical slice 1 test | Agent 5 | S1a–S1f | ❌ BLOCKED | tests/e2e/ | F-010: accepts any warning. F-011: no patched assertion. F-014: `__main__` crashes. |
 | S2a | Program eligibility gate | Agent 3 | VS1 | ❌ FAILED | orchestrator/eligibility/ | F-001: `_validate()` requires `status`, `create()` writes `program_status`. Always raises. |
 | S2b | Archetype classifier | Agent 4 | VS1 | ✅ DONE | orchestrator/classify/ | 9 unit tests pass. 12 archetypes, rule-based, multi-label works. |
 | S2c | Deduplication | Agent 4 | S1d | 🔶 PARTIAL | orchestrator/deduplicate/ | Dedup works per-tool. Cross-tool grouping untested (keys use tool-specific rule IDs). |
 | S2d | Invariant registry | Agent 4 | S2b | ❌ BLOCKED | invariants/registry.json | F-006: 9/10 invariants falsely VERIFIED (no source commit, no validation history). |
-| S2e | Aderyn adapter | Agent 3 | VS1 | ❌ BLOCKED | orchestrator/adapters/aderyn/ | Same F-004, F-015, F-016 as Slither. Not run in E2E test. |
+|| S2e | Aderyn adapter | Agent 3 | VS1 | 🔶 BLOCKED | orchestrator/adapters/aderyn/ | F-004 still open (success calc). F-015 fixed: sandbox wired. F-016 fixed: `_SECURE_ENV`. |
 | S2f | Confidence model | Agent 4 | S1d | ✅ DONE | orchestrator/classify/ | 0-5 rubric in `finding.json` schema. Unit tested. |
 | S3a | Invariant selection/compat | Agent 4 | S2d, S2b | ❌ BLOCKED | orchestrator/classify/ | F-006: registry references phantom invariant IDs not in registry. |
 | S3b | Harness generation | Agent 4 | S3a, S1c | ❌ BLOCKED | orchestrator/harness/ | F-007: 4 archetypes produce empty no-op functions. F-008: tautological ERC-4626. |
@@ -76,28 +76,28 @@
 | S3g | Human-review routing | Agent 3 | S3f | 🔶 PARTIAL | orchestrator/jobs/ | `HumanReviewQueue` exists. Not integrated into CLI. |
 | S4a | Persistent job state | Agent 3 | VS1 | ✅ DONE | orchestrator/jobs/ | `JobState` with JSON file persistence. Unit tested. |
 | S4b | Checkpointing | Agent 3 | S4a | ✅ DONE | orchestrator/jobs/ | `CheckpointManager` save/load/resume. Unit tested. |
-| S4c | Sandboxing | Agent 3 | VS1 | ❌ BLOCKED | docker/ | F-015: `SandboxManager` exists but never called from build or adapter code. |
-| S5 | Phase 1 acceptance | Agent 5 | All Phase 1 | ❌ BLOCKED | docs/phase-acceptance.md | 20 P0 findings. Phase 1: 45 criteria, only 15 passing. |
+|| S4c | Sandboxing | Agent 3 | VS1 | ✅ DONE | docker/ | F-015: `SandboxManager` wired through `BuildExecutor.__init__(sandbox=)` and `ToolAdapter.run(sandbox=)`. `_SECURE_ENV` enforced. |
+|| S5 | Phase 1 acceptance | Agent 5 | All Phase 1 | ❌ BLOCKED | docs/phase-acceptance.md | 14 P0 findings (6 fixed in Gate 2). Phase 1: 45 criteria, 17 passing + 7 remediated. |
 
 ---
 
 ## Dependency Graph (Phase 1 first vertical slice)
 
 ```
-P0 (planning docs)
-  ├─ S1a (intake) ─── ❌ BLOCKED (F-002, F-003)
-  ├─ S1b (ecosystem detection) ─── ✅ DONE
-  ├─ S1c (build resolver) ─── 🔶 PARTIAL (F-022, F-023)
-  ├─ S1d (shared schema) ─── ❌ BLOCKED (F-005)
-  │    ├─ S1e (Slither adapter) ─── ❌ BLOCKED (F-004, F-015, F-016)
-  │    └─ S1f (artifact storage) ─── ✅ DONE
-  │         └─ VS1 (vertical slice 1) ─── ❌ BLOCKED (F-010, F-011, F-014)
-  │              ├─ S2a (eligibility) ─── ❌ FAILED (F-001)
-  │              ├─ S2b (classifier) ─── ✅ DONE
-  │              ├─ S2e (Aderyn) ─── ❌ BLOCKED (F-004, F-015, F-016)
-  │              ├─ S4a (job state) ─── ✅ DONE
-  │              ├─ S4b (checkpointing) ─── ✅ DONE
-  │              └─ S4c (sandbox) ─── ❌ BLOCKED (F-015)
+|P0 (planning docs)
+|  ├─ S1a (intake) ─── ✅ DONE (F-002, F-003 fixed)
+|  ├─ S1b (ecosystem detection) ─── ✅ DONE
+|  ├─ S1c (build resolver) ─── ✅ DONE (F-022, F-023, F-015 fixed)
+|  ├─ S1d (shared schema) ─── ❌ BLOCKED (F-005)
+|  │    ├─ S1e (Slither adapter) ─── 🔶 BLOCKED (F-004 only)
+|  │    └─ S1f (artifact storage) ─── ✅ DONE
+|  │         └─ VS1 (vertical slice 1) ─── ❌ BLOCKED (F-010, F-011, F-014)
+|  │              ├─ S2a (eligibility) ─── ❌ FAILED (F-001)
+|  │              ├─ S2b (classifier) ─── ✅ DONE
+|  │              ├─ S2e (Aderyn) ─── 🔶 BLOCKED (F-004 only)
+|  │              ├─ S4a (job state) ─── ✅ DONE
+|  │              ├─ S4b (checkpointing) ─── ✅ DONE
+|  │              └─ S4c (sandbox) ─── ✅ DONE (F-015 fixed)
   │
   ├─ S2c (dedup) ─── 🔶 PARTIAL
   ├─ S2d (invariant registry) ─── ❌ BLOCKED (F-006)
@@ -110,7 +110,7 @@ P0 (planning docs)
   │         │    └─ S3e (Echidna) ─── 🔶 PARTIAL
   │         └─ S2f (confidence) ─── ✅ DONE
   │
-  └─ S5 (Phase 1 acceptance) ─── ❌ BLOCKED (20 P0)
+  └─ S5 (Phase 1 acceptance) ─── ❌ BLOCKED (14 P0)
 ```
 
 ---

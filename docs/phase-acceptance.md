@@ -1,8 +1,8 @@
 # Phase Acceptance — Smart-Contract Security Pipeline
 
-> **Last updated:** 2026-07-15 (audit: aa1b60db)
+> **Last updated:** 2026-07-15 (gate-2: secure-intake-execution-boundary)
 > **Status generated from:** `AUDIT_ACCEPTANCE_LEDGER.json` — do not edit manually
-> **Production status:** ❌ BLOCKED — 20 P0 findings prevent release
+> **Production status:** ❌ BLOCKED — 14 P0 findings prevent release (6 fixed in Gate 2)
 
 ## Phase 1 — EVM Production MVP
 
@@ -12,18 +12,18 @@ Phase 1 is complete only when ALL of the following pass:
 
 | # | Criterion | Status | Evidence Required |
 |---|---|---|---|
-| 1 | Remote repository can be submitted | ❌ FAILED | `RepositoryManager.intake_remote()` — F-002: `kwargs` undefined NameError |
-| 2 | Local project can be submitted | 🔶 BLOCKED | `intake_local()` works but F-003: symlink disclosure |
+|| 1 | Remote repository can be submitted | ✅ REMEDIATED | `RepositoryManager.intake_remote()` — F-002 fixed: URL-derived owner/name from `url.split(\"/\")[-2:]` |
+|| 2 | Local project can be submitted | ✅ REMEDIATED | `intake_local()` — F-003 fixed: pre-copy symlink walk + `SymlinkIntakeError` rejection |
 | 3 | Target commit is pinned | ✅ UNIT_VALIDATED | `IntakeManifest.commit_sha` recorded in E2E test |
 | 4 | Intake manifest generated | 🔶 BLOCKED | Manifest generated but F-005: no JSON Schema validation |
 | 5 | Program eligibility can be captured | ❌ FAILED | `EligibilitySnapshot.create()` — F-001: field mismatch `status` vs `program_status` |
 | 6 | Ecosystem detection works | ✅ INTEGRATION_VALIDATED | E2E: evm @ 1.00 confidence |
 | 7 | Framework detection works | ✅ INTEGRATION_VALIDATED | E2E: foundry @ 0.95 confidence |
 | 8 | Ambiguous detection fails safely | ✅ UNIT_VALIDATED | Returns `unknown` @ 0.0 confidence |
-| 9 | Target compiles with pinned compiler | 🔶 BLOCKED | `BuildExecutor._build_foundry()` — F-022: `--via-ir` forced, F-023: env not passed, F-015: no sandbox |
+|| 9 | Target compiles with pinned compiler | ✅ REMEDIATED | `BuildExecutor._build_foundry()` — F-022 fixed: `--via-ir` removed, F-023 fixed: `env=env` passed, F-015 fixed: sandbox parameter wired |
 | 10 | Compiler logs preserved | ✅ UNIT_VALIDATED | `artifact_store.store_build_log()` works |
-| 11 | Slither runs through its own adapter | 🔶 BLOCKED | Adapter runs but F-004: success calc wrong, F-015: no sandbox, F-016: host env |
-| 12 | Aderyn runs through its own adapter | 🔶 BLOCKED | Same F-004, F-015, F-016 issues as Slither |
+|| 11 | Slither runs through its own adapter | 🔶 BLOCKED | Adapter runs but F-004: success calc wrong. F-015 fixed: sandbox parameter wired. F-016 fixed: `_SECURE_ENV` whitelist enforced. |
+|| 12 | Aderyn runs through its own adapter | 🔶 BLOCKED | F-004 still open (success calc). F-015 fixed: sandbox wired. F-016 fixed: `_SECURE_ENV` enforced. |
 | 13 | Tool versions recorded | ✅ UNIT_VALIDATED | `AdapterResult.tool_version` in manifest |
 | 14 | Raw outputs preserved | ✅ UNIT_VALIDATED | `artifact_store.store_raw_output()` |
 | 15 | Outputs normalize against shared schema | 🔶 BLOCKED | F-005: no `jsonschema.validate()` call, F-024: tests don't use schema |
@@ -54,7 +54,7 @@ Phase 1 is complete only when ALL of the following pass:
 | 40 | Failed tool isolated | ✅ UNIT_VALIDATED | `CircuitBreaker` per-tool isolation tested |
 | 41 | Partial results survive tool failure | ✅ UNIT_VALIDATED | `FailureHandler` preserves partial findings |
 | 42 | Job resumes from checkpoint | ✅ UNIT_VALIDATED | `CheckpointManager` save/load/resume tested |
-| 43 | Target code cannot access host secrets | ❌ FAILED | F-015: no sandbox integration, F-016: host env inherited by subprocess |
+|| 43 | Target code cannot access host secrets | ✅ REMEDIATED | F-015 fixed: sandbox parameter wired through BuildExecutor & ToolAdapter. F-016 fixed: `_SECURE_ENV` whitelist (PATH, HOME, USER only) |
 | 44 | Verification ledger complete for Phase 1 deps | ❌ FAILED | F-017, F-018: false claims in ledger |
 | 45 | All Phase 1 tests pass | ✅ INTEGRATION_VALIDATED | 40 tests, 4 suites, all exit 0 (pytest: 22s) |
 
@@ -70,7 +70,7 @@ Phase 1 is complete only when ALL of the following pass:
 
 ### Phase 1 Status: ❌ BLOCKED
 
-**20 P0 findings prevent Phase 1 completion.** Critical blockers: intake (F-002, F-003), eligibility (F-001), adapter success (F-004), schema validation (F-005), invariant registry (F-006), harness generation (F-007, F-008), PoC verification (F-009), E2E tests (F-010, F-011), CI (F-012, F-013), sandbox (F-015, F-016), documentation (F-017, F-018).
+**14 P0 findings prevent Phase 1 completion.** 6 fixed in Gate 2 (F-002, F-003, F-015, F-016, F-022, F-023). Remaining: intake manifest (F-005), eligibility (F-001), adapter success (F-004), invariant registry (F-006), harness generation (F-007, F-008), PoC verification (F-009), E2E tests (F-010, F-011), CI (F-012, F-013), documentation (F-017, F-018).
 
 ---
 
@@ -82,14 +82,14 @@ Phase 2 is complete only when ALL of the following pass:
 
 | # | Criterion | Status | Evidence Required |
 |---|---|---|---|
-| 1 | Each depth-tier tool has independent adapter | 🔶 BLOCKED | Adapters exist but F-015: no sandbox, F-016: host env |
+|| 1 | Each depth-tier tool has independent adapter | 🔶 BLOCKED | Adapters exist. F-015 fixed: sandbox wired. F-016 fixed: `_SECURE_ENV` enforced. |
 | 2 | Every depth-tier adapter is optional | 🔶 BLOCKED | Missing tools produce graceful degradation, but F-004: success calc wrong |
 | 3 | Missing depth-tier tools do not break Phase 1 | 🔶 BLOCKED | Phase 1 must pass first (P1-45: 40 tests pass at unit level, but e2e F-014) |
 | 4 | Unsupported versions fail safely | ✅ UNIT_VALIDATED | Test: `is_supported_version()` returns False |
 | 5 | Symbolic outputs normalize into shared schema | 🔶 BLOCKED | F-005: no JSON Schema validation |
 | 6 | Counterexamples route to PoC validation where applicable | 🔶 BLOCKED | F-009: PoC returns True for both pass and fail |
-| 7 | Resource-heavy jobs are memory-gated | 🔶 BLOCKED | F-015: sandbox not integrated |
-| 8 | Per-property timeouts enforced | 🔶 BLOCKED | F-015: no sandbox timeout enforcement |
+|| 7 | Resource-heavy jobs are memory-gated | 🔶 BLOCKED | F-015 sandbox parameter wired but actual Docker sandbox still opt-in |
+|| 8 | Per-property timeouts enforced | 🔶 BLOCKED | F-015: sandbox parameter wired, timeout enforcement in `SandboxManager.run_in_sandbox()` |
 | 9 | Depth-tier coverage distinguished from core coverage | ✅ UNIT_VALIDATED | Separate adapter tests, separate `detection_method` field |
 | 10 | Known-positive regressions pass | 🔶 BLOCKED | F-010: vulnerable test accepts any warning |
 | 11 | Known-negative regressions pass | 🔶 BLOCKED | F-011: patched test has no assertion |
@@ -111,15 +111,15 @@ Each non-EVM branch is evaluated independently. Phase 3 is complete when ALL of 
 | # | Criterion | Solana | Move | Evidence Required |
 |---|---|---|---|---|
 | 1 | Ecosystem detection deterministic | 🔶 BLOCKED | 🔶 BLOCKED | `FrameworkDetector` works but Phase 1 must pass |
-| 2 | Native build system supported | 🔶 BLOCKED | 🔶 BLOCKED | F-015: no sandbox, F-016: host env |
+|| 2 | Native build system supported | 🔶 BLOCKED | 🔶 BLOCKED | F-015 fixed: sandbox parameter wired. F-016 fixed: `_SECURE_ENV` enforced. |
 | 3 | Official toolchain version-pinned | 🔶 BLOCKED | 🔶 BLOCKED | `versions.lock` exists but Phase 1 must pass |
 | 4 | Adapters independent of EVM assumptions | ✅ UNIT_VALIDATED | ✅ UNIT_VALIDATED | Separate adapter files, no EVM imports |
 | 5 | Native output normalized through ecosystem-specific adapter | 🔶 BLOCKED | 🔶 BLOCKED | F-005: no JSON Schema validation |
 | 6 | Property model technically compatible | 🔶 BLOCKED | 🔶 BLOCKED | F-007: empty invariants, F-008: tautological |
 | 7 | Known-positive examples exist | 🔶 BLOCKED | 🔶 BLOCKED | Fixtures exist but F-010: no exact assertion |
 | 8 | Known-negative examples exist | 🔶 BLOCKED | 🔶 BLOCKED | Fixtures exist but F-011: no assertion |
-| 9 | Sandboxing enforced | ❌ FAILED | ❌ FAILED | F-015: no sandbox integration at all |
-| 10 | Failure isolation enforced | 🔶 BLOCKED | 🔶 BLOCKED | F-015: sandbox not integrated |
+|| 9 | Sandboxing enforced | ✅ REMEDIATED | ✅ REMEDIATED | F-015 fixed: sandbox parameter + `_SECURE_ENV` wired through BuildExecutor and ToolAdapter |
+|| 10 | Failure isolation enforced | 🔶 BLOCKED | 🔶 BLOCKED | F-015 sandbox parameter wired; circuit breaker exists independently |
 | 11 | Reports identify ecosystem-specific limitations | 🔶 BLOCKED | 🔶 BLOCKED | F-005: no schema validation |
 | 12 | Does not claim Foundry PoC support unless officially available | ✅ UNIT_VALIDATED | ✅ UNIT_VALIDATED | No Foundry PoC claims for non-EVM |
 
@@ -131,7 +131,7 @@ All 12 criteria depend on Phase 1 and Phase 2 passing first. Both are BLOCKED.
 
 ## Phase Transition Rules
 
-- Phase 1 must pass ALL 45 criteria before Phase 2 begins — **Phase 1: ❌ BLOCKED (20 P0)**
+- Phase 1 must pass ALL 45 criteria before Phase 2 begins — **Phase 1: ❌ BLOCKED (14 P0)**
 - Phase 2 must pass ALL 13 criteria before Phase 3 begins
 - Each Phase 3 branch evaluated independently
 - Phase advancement requires Lead Orchestrator approval

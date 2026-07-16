@@ -4,13 +4,26 @@ Base adapter class for all pipeline tool adapters.
 
 import json
 import os
+import shlex
 import subprocess
 import time
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Optional
+from typing import Optional, TYPE_CHECKING
+
+
+if TYPE_CHECKING:
+    from orchestrator.jobs.sandbox import SandboxManager
+
+
+# Minimal environment for subprocess execution — strips host secrets
+_SECURE_ENV = {
+    "PATH": os.environ.get("PATH", "/usr/bin:/bin"),
+    "HOME": os.environ.get("HOME", "/tmp"),
+    "USER": os.environ.get("USER", "nobody"),
+}
 
 
 @dataclass
@@ -104,8 +117,19 @@ class ToolAdapter(ABC):
         pass
 
     def run(self, target_dir: str, job_id: str, timeout_s: int = 120,
+            sandbox: Optional["SandboxManager"] = None,
+            env: Optional[dict] = None,
             **kwargs) -> AdapterResult:
-        """Run the tool adapter — dependency check, execution, parsing."""
+        """Run the tool adapter — dependency check, execution, parsing.
+
+        Args:
+            target_dir: Directory containing the target project.
+            job_id: Unique job identifier.
+            timeout_s: Max execution time in seconds.
+            sandbox: Optional SandboxManager for container-isolated execution.
+            env: Optional extra environment variables (merged into secure default).
+            **kwargs: Tool-specific arguments passed to build_command().
+        """
         # Check dependencies
         if not self.check_dependencies():
             return AdapterResult(
@@ -118,26 +142,53 @@ class ToolAdapter(ABC):
 
         tool_version = self.get_version()
 
-        # Build and execute command
+        # Build the command
         cmd = self.build_command(target_dir, **kwargs)
-        cmd_str = " ".join(str(c) for c in cmd)
+        cmd_str = shlex.join(str(c) for c in cmd)
+
+        # Build a minimal environment — strip host secrets (F-016)
+        run_env = dict(_SECURE_ENV)
+        if env:
+            run_env.update(env)
+        # Allow PATH updates from kwargs (e.g. custom tool path)
+        extra_path = kwargs.get("extra_path", "")
+        if extra_path:
+            run_env["PATH"] = f"{extra_path}:{run_env['PATH']}"
 
         _start = time.time()
-        try:
-            result = subprocess.run(
-                cmd, cwd=target_dir,
-                capture_output=True, text=True,
-                timeout=timeout_s,
-            )
-            timed_out = False
-            stdout = result.stdout
-            stderr = result.stderr
-            exit_code = result.returncode
-        except subprocess.TimeoutExpired:
-            timed_out = True
-            stdout = ""
-            stderr = f"TIMEOUT after {timeout_s}s"
-            exit_code = -1
+        timed_out = False
+        stdout = ""
+        stderr = ""
+        exit_code = -1
+
+        if sandbox and sandbox.use_sandbox:
+            # Route through sandbox container (F-015)
+            try:
+                exit_code, stdout, stderr = sandbox.run_in_sandbox(
+                    job_id=job_id,
+                    command=cmd,
+                    work_dir=target_dir,
+                    timeout_s=timeout_s,
+                )
+            except Exception as e:
+                stderr = f"Sandbox execution failed: {e}"
+                exit_code = -1
+        else:
+            # Direct execution with stripped environment
+            try:
+                result = subprocess.run(
+                    cmd, cwd=target_dir,
+                    capture_output=True, text=True,
+                    timeout=timeout_s,
+                    env=run_env,
+                )
+                stdout = result.stdout
+                stderr = result.stderr
+                exit_code = result.returncode
+            except subprocess.TimeoutExpired:
+                timed_out = True
+                stderr = f"TIMEOUT after {timeout_s}s"
+                exit_code = -1
 
         _end = time.time()
 
@@ -168,8 +219,15 @@ class ToolAdapter(ABC):
                     "raw_output_saved": output_paths[-1] if output_paths else "",
                 }]
 
-        # Determine success — partial results still produce findings
-        success = exit_code == 0 or len(normalized) > 0
+        # Track three independent success flags (F-004 fix)
+        process_success = exit_code == 0
+        parse_success = len(normalized) == 0 or not any(
+            f.get("classification") == "analysis_failure"
+            and "parse" in f.get("tool", {}).get("rule_id", "")
+            for f in normalized
+        )
+        # Determine success — ONLY process_success matters for tool success
+        success = process_success
 
         return AdapterResult(
             success=success,

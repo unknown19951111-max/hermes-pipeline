@@ -16,8 +16,8 @@ Phase 1 is complete only when ALL of the following pass:
 | 6 | Ecosystem detection works | ✅ | E2E: evm @ 1.00 confidence |
 | 7 | Framework detection works | ✅ | E2E: foundry @ 0.95 confidence |
 | 8 | Ambiguous detection fails safely | ✅ | Returns `unknown` @ 0.0 confidence |
-| 9 | Target compiles with pinned compiler | ✅ | E2E: `forge build` success |
-| 10 | Compiler logs preserved | ✅ | `artifact_store.store_build_log()` |
+| 9 | Target compiles with pinned compiler | ⚠️ **REQUIRES RUNTIME VALIDATION** | `BuildExecutor._build_foundry()` — requires `forge` in PATH |
+| 10 | Compiler logs preserved | ⚠️ **REQUIRES RUNTIME VALIDATION** | `artifact_store.store_build_log()` — depends on successful build |
 | 11 | Slither runs through its own adapter | ✅ | Adapter test: 4 findings, reentrancy detected |
 | 12 | Aderyn runs through its own adapter | ✅ | Adapter test: 4 findings, reentrancy detected |
 | 13 | Tool versions recorded | ✅ | `AdapterResult.tool_version` in manifest |

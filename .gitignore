@@ -5,7 +5,7 @@ __pycache__/
 *.egg-info/
 .eggs/
 dist/
-build/
+/build/
 *.egg
 
 # Virtual environments
@@ -20,6 +20,7 @@ logs/
 
 # Toolchain artifacts
 *.solc-select/
+.wake/
 cache/
 out/
 artifacts/contracts/

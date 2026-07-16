@@ -93,15 +93,15 @@ def test_required_deps():
 
 
 def test_promotion_rules():
-    """Test that VERIFIED invariant promotion is blocked."""
+    """Test that VERIFIED promotion requires full evidence."""
     registry = InvariantRegistry(REGISTRY_PATH)
     
-    # Try to promote a VERIFIED invariant (should fail)
+    # Try to promote a CANDIDATE invariant to VERIFIED without evidence (should fail)
     try:
         registry.promote("erc20-total-supply-invariant", "VERIFIED")
-        print("  ⚠️  VERIFIED promotion succeeded (this may be unexpected)")
+        print("  ⚠️  VERIFIED promotion succeeded without evidence (this should not happen)")
     except ValueError as e:
-        print(f"  ✅ VERIFIED immutability enforced: {e}")
+        print(f"  ✅ VERIFIED promotion blocked: {e}")
 
 
 def test_get_invariant():
@@ -111,8 +111,26 @@ def test_get_invariant():
     inv = registry.get_invariant("erc20-total-supply-invariant")
     assert inv is not None, "Should find invariant by ID"
     assert inv["id"] == "erc20-total-supply-invariant"
-    assert inv["status"] == "VERIFIED"
+    assert inv["status"] == "CANDIDATE", "Demoted to CANDIDATE — no source_commit (F-006)"
     print(f"  ✅ Lookup: {inv['id']} ({inv['status']})")
+
+
+def test_can_promote_rejects_no_evidence():
+    """Test that can_promote_to_verified rejects invariants without evidence."""
+    registry = InvariantRegistry(REGISTRY_PATH)
+    
+    ok, reasons = registry.can_promote_to_verified("erc20-total-supply-invariant")
+    assert not ok, "Should reject promotion without evidence"
+    print(f"  ✅ Rejected CANDIDATE→VERIFIED: {'; '.join(reasons)}")
+    
+    
+def test_can_promote_unknown_id():
+    """Test that can_promote_to_verified handles unknown invariant IDs."""
+    registry = InvariantRegistry(REGISTRY_PATH)
+    
+    ok, reasons = registry.can_promote_to_verified("nonexistent-invariant")
+    assert not ok, "Should reject unknown invariant"
+    print(f"  ✅ Rejected unknown ID: {'; '.join(reasons)}")
 
 
 if __name__ == "__main__":

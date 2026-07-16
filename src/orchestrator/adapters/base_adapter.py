@@ -40,6 +40,7 @@ class AdapterResult:
     stderr: str
     raw_output_paths: list[str]
     normalized_findings: list[dict] = field(default_factory=list)
+    parse_success: bool = True
     execution_manifest: dict = field(default_factory=dict)
     coverage_limitations: list[str] = field(default_factory=list)
     start_time: str = ""
@@ -221,13 +222,12 @@ class ToolAdapter(ABC):
 
         # Track three independent success flags (F-004 fix)
         process_success = exit_code == 0
-        parse_success = len(normalized) == 0 or not any(
+        parse_success = not any(
             f.get("classification") == "analysis_failure"
-            and "parse" in f.get("tool", {}).get("rule_id", "")
             for f in normalized
         )
-        # Determine success — ONLY process_success matters for tool success
-        success = process_success
+        # Overall success requires clean exit AND parseable output
+        success = process_success and parse_success
 
         return AdapterResult(
             success=success,
@@ -241,6 +241,7 @@ class ToolAdapter(ABC):
             stderr=stderr,
             raw_output_paths=output_paths,
             normalized_findings=normalized,
+            parse_success=parse_success,
             error=None if success else stderr[:500] if stderr else "Unknown error",
             start_time=datetime.fromtimestamp(_start, tz=timezone.utc).isoformat(),
             end_time=datetime.fromtimestamp(_end, tz=timezone.utc).isoformat(),

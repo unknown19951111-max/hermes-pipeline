@@ -26,6 +26,13 @@ class HarnessGenerator:
         self.work_dir = Path(work_dir)
         self.work_dir.mkdir(parents=True, exist_ok=True)
 
+    INCOMPATIBLE_INVARIANTS: dict[str, str] = {
+        "lending": "Lending health factor invariant not yet implemented — requires protocol-specific collateral ratio tracking",
+        "dex_amm": "DEX constant product invariant not yet implemented — requires getReserves() integration",
+        "governance": "Governance vote snapshot invariant not yet implemented — requires proposal flow integration",
+        "bridge": "Bridge mint-bound invariant not yet implemented — requires cross-chain balance tracking",
+    }
+
     def generate_harness(self, target_dir: str, archetype: str,
                          invariant_ids: list[str],
                          contract_name: str = "Contract") -> tuple[bool, str, str]:
@@ -34,6 +41,13 @@ class HarnessGenerator:
         
         Returns: (success, harness_path, error_message)
         """
+        # Check if the archetype has any implementable invariants
+        if archetype in self.INCOMPATIBLE_INVARIANTS:
+            return (
+                False,
+                "",
+                f"INCOMPATIBLE_INVARIANT: {self.INCOMPATIBLE_INVARIANTS[archetype]}"
+            )
         # Build the harness file
         harness_content = self._build_harness_content(
             archetype, invariant_ids, contract_name
@@ -123,10 +137,13 @@ contract InvariantTest is Test {{
     
 """
         if archetype == "erc4626":
-            invariants += """    /// @dev Invariant: totalAssets must reflect the actual asset balance
+            invariants += """    /// @dev Invariant: totalAssets must reflect actual asset balance
     function invariant_totalAssets() public {
-        // This is a simplified check — real implementation needs asset-aware handler
-        assertTrue(target.totalAssets() >= 0, "totalAssets underflow");
+        // totalAssets must be >= any user's shares converted to assets
+        if (target.balanceOf(address(this)) > 0) {
+            uint256 minAssets = target.convertToShares(target.balanceOf(address(this)));
+            assertGe(target.totalAssets(), minAssets, "totalAssets < minimum expected");
+        }
     }
     
 """

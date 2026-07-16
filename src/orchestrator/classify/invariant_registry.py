@@ -133,6 +133,42 @@ class InvariantRegistry:
         except (ValueError, IndexError):
             return 0
 
+    def can_promote_to_verified(self, invariant_id: str) -> tuple[bool, list[str]]:
+        """
+        Check if an invariant has all required evidence for VERIFIED status.
+        
+        VERIFIED requires:
+        - implementation_path (non-empty)
+        - source_commit (non-empty)
+        - positive_cases (non-empty list)
+        - negative_cases (non-empty list)
+        - validation_command (non-empty)
+        - validation_artifacts (non-empty)
+        - reviewer (non-empty)
+        - review_timestamp (non-empty)
+        """
+        inv = self.get_invariant(invariant_id)
+        if not inv:
+            return False, [f"Invariant not found: {invariant_id}"]
+
+        reasons = []
+        required_evidence = [
+            ("implementation_path", "No implementation path"),
+            ("source_commit", "No source commit"),
+            ("positive_cases", "No positive test cases"),
+            ("negative_cases", "No negative test cases"),
+            ("validation_command", "No validation command"),
+            ("validation_artifacts", "No validation artifacts"),
+            ("reviewer", "No reviewer"),
+            ("review_timestamp", "No review timestamp"),
+        ]
+        for field, msg in required_evidence:
+            val = inv.get(field, "")
+            if not val or (isinstance(val, list) and len(val) == 0):
+                reasons.append(msg)
+
+        return len(reasons) == 0, reasons
+
     def promote(self, invariant_id: str, new_status: str,
                 commit: str = "") -> bool:
         """
@@ -141,9 +177,15 @@ class InvariantRegistry:
         Rules:
         - VERIFIED is immutable — requires version bump
         - Never demote without explicit action
+        - Promotion to VERIFIED requires full evidence (use can_promote_to_verified)
         """
         if new_status not in ["CANDIDATE", "VERIFIED", "DEPRECATED"]:
             raise ValueError(f"Invalid status: {new_status}")
+        
+        if new_status == "VERIFIED":
+            ok, reasons = self.can_promote_to_verified(invariant_id)
+            if not ok:
+                raise ValueError(f"Cannot promote {invariant_id} to VERIFIED: {'; '.join(reasons)}")
 
         for i, inv in enumerate(self._data.get("invariants", [])):
             if inv.get("id") == invariant_id:

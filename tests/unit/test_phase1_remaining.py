@@ -289,7 +289,151 @@ def test_sandbox_direct_run():
     assert exit_code == 0, f"Expected 0, got {exit_code}"
     assert "hello" in stdout, "Should get echo output"
     print(f"  ✅ Sandbox direct mode: exit={exit_code}")
+    print()
 
+
+# ===== F-004: Adapter success calculation =====
+
+def test_adapter_parse_failure_returns_success_false():
+    """Test that parse failure results in success=False (F-004)."""
+    from orchestrator.adapters.base_adapter import AdapterResult
+
+    # Simulate: exit_code=0 but parse error created an analysis_failure finding
+    result = AdapterResult(
+        success=False,
+        tool="TestTool",
+        tool_version="1.0.0",
+        adapter_version="0.1.0",
+        command="test",
+        exit_code=0,
+        timed_out=False,
+        stdout="garbage",
+        stderr="",
+        raw_output_paths=[],
+        normalized_findings=[{
+            "classification": "analysis_failure",
+            "tool": {"name": "TestTool", "version": "1.0.0", "rule_id": "parse-error"},
+            "title": "Failed to parse output",
+        }],
+        parse_success=False,
+    )
+    assert not result.success, "Parse failure should set success=False"
+    assert not result.parse_success, "parse_success should be False"
+    print(f"  ✅ Parse failure: success={result.success}, parse_success={result.parse_success}")
+
+
+def test_adapter_nonzero_exit_no_output():
+    """Test that nonzero exit with no output returns success=False (F-004)."""
+    from orchestrator.adapters.base_adapter import AdapterResult
+
+    result = AdapterResult(
+        success=False,
+        tool="TestTool",
+        tool_version="1.0.0",
+        adapter_version="0.1.0",
+        command="test",
+        exit_code=1,
+        timed_out=False,
+        stdout="",
+        stderr="error",
+        raw_output_paths=[],
+        normalized_findings=[],
+        parse_success=True,
+    )
+    assert not result.success, "Nonzero exit should set success=False"
+    assert result.parse_success, "Empty output means no parse error"
+    print(f"  ✅ Nonzero exit: success={result.success}, parse_success={result.parse_success}")
+
+
+def test_adapter_clean_exit_parseable_output():
+    """Test that clean exit with parseable output returns success=True (F-004)."""
+    from orchestrator.adapters.base_adapter import AdapterResult
+
+    result = AdapterResult(
+        success=True,
+        tool="TestTool",
+        tool_version="1.0.0",
+        adapter_version="0.1.0",
+        command="test",
+        exit_code=0,
+        timed_out=False,
+        stdout="valid output",
+        stderr="",
+        raw_output_paths=[],
+        normalized_findings=[{"finding_id": "test-1", "classification": "reentrancy"}],
+        parse_success=True,
+    )
+    assert result.success, "Clean exit with parseable output should set success=True"
+    assert result.parse_success, "parse_success should be True"
+    print(f"  ✅ Clean exit: success={result.success}, parse_success={result.parse_success}")
+
+
+# ===== F-007/F-008: Harness generation =====
+
+def test_harness_incompatible_archetype():
+    """Test that unsupported archetypes return INCOMPATIBLE_INVARIANT (F-007)."""
+    sys.path.insert(0, str(Path(__file__).resolve().parent.parent.parent / "src"))
+    from orchestrator.harness import HarnessGenerator
+
+    gen = HarnessGenerator("/tmp")
+    success, path, error = gen.generate_harness(
+        "/tmp", "lending", [], "TestContract",
+    )
+    assert not success, "Unsupported archetype should return success=False"
+    assert "INCOMPATIBLE_INVARIANT" in error, f"Should mention INCOMPATIBLE_INVARIANT: {error}"
+    print(f"  ✅ Incompatible archetype: {error}")
+
+
+def test_harness_erc4626_meaningful_assertion():
+    """Test that ERC-4626 invariant has a meaningful assertion (F-008)."""
+    sys.path.insert(0, str(Path(__file__).resolve().parent.parent.parent / "src"))
+    from orchestrator.harness import HarnessGenerator
+
+    gen = HarnessGenerator("/tmp")
+    content = gen._get_archetype_invariants("erc4626", "TestContract")
+    assert "assertGe" in content, "Should use assertGe (not tautological assertTrue)"
+    assert "assertTrue" not in content, "Should not have tautological assertTrue"
+    print(f"  ✅ ERC-4626: meaningful assertion found (assertGe)")
+
+
+def test_harness_erc20_has_assertion():
+    """Test that ERC-20 invariant has a real assertion."""
+    sys.path.insert(0, str(Path(__file__).resolve().parent.parent.parent / "src"))
+    from orchestrator.harness import HarnessGenerator
+
+    gen = HarnessGenerator("/tmp")
+    content = gen._get_archetype_invariants("erc20", "TestContract")
+    assert "assertEq" in content, "ERC-20 should have assertEq assertion"
+    print(f"  ✅ ERC-20: assertion found (assertEq)")
+
+
+# ===== F-006: Invariant registry evidence =====
+
+def test_invariant_registry_no_verified_without_evidence():
+    """Test that no VERIFIED invariants exist without evidence (F-006)."""
+    from orchestrator.classify.invariant_registry import InvariantRegistry
+
+    REGISTRY_PATH = str(Path(__file__).resolve().parent.parent.parent / "invariants" / "registry.json")
+    registry = InvariantRegistry(REGISTRY_PATH)
+    verified = registry.select_for_archetype(["erc20"], min_status="VERIFIED")
+    for inv in verified:
+        ok, reasons = registry.can_promote_to_verified(inv["id"])
+        assert ok, f"VERIFIED invariant {inv['id']} missing evidence: {reasons}"
+    print(f"  ✅ All {len(verified)} VERIFIED invariants have complete evidence")
+
+
+def test_invariant_registry_rejects_phantom_promotion():
+    """Test that CANDIDATE invariants cannot be promoted to VERIFIED without evidence (F-006)."""
+    from orchestrator.classify.invariant_registry import InvariantRegistry
+
+    REGISTRY_PATH = str(Path(__file__).resolve().parent.parent.parent / "invariants" / "registry.json")
+    registry = InvariantRegistry(REGISTRY_PATH)
+    try:
+        registry.promote("erc20-total-supply-invariant", "VERIFIED")
+        assert False, "Should have raised ValueError"
+    except ValueError as e:
+        assert "Cannot promote" in str(e), f"Unexpected error: {e}"
+        print(f"  ✅ Phantom promotion rejected: {e}")
 
 if __name__ == "__main__":
     print("=" * 60)
@@ -309,6 +453,14 @@ if __name__ == "__main__":
     test_sandbox_config_generation()
     test_sandbox_manager_dependency_check()
     test_sandbox_direct_run()
+    test_adapter_parse_failure_returns_success_false()
+    test_adapter_nonzero_exit_no_output()
+    test_adapter_clean_exit_parseable_output()
+    test_harness_incompatible_archetype()
+    test_harness_erc4626_meaningful_assertion()
+    test_harness_erc20_has_assertion()
+    test_invariant_registry_no_verified_without_evidence()
+    test_invariant_registry_rejects_phantom_promotion()
 
     print(f"\n{'='*60}")
     print("ALL PHASE 1 REMAINING TESTS PASSED")

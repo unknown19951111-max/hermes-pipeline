@@ -19,10 +19,10 @@
       "harness_assumptions": ["Contract implements IERC20", "Balances are publicly queryable"],
       "source_provenance": "crytic/properties",
       "source_commit": "",
-      "status": "VERIFIED",
+      "status": "CANDIDATE",
       "version": "1.0.0",
       "validation_history": [],
-      "deprecation_reason": null
+      "deprecation_reason": "Demoted from VERIFIED — no source_commit, no validation_history (F-006)"
     },
     {
       "id": "erc20-balance-invariant",
@@ -37,10 +37,10 @@
       "harness_assumptions": ["Contract implements IERC20"],
       "source_provenance": "crytic/properties",
       "source_commit": "",
-      "status": "VERIFIED",
+      "status": "CANDIDATE",
       "version": "1.0.0",
       "validation_history": [],
-      "deprecation_reason": null
+      "deprecation_reason": "Demoted from VERIFIED — no source_commit, no validation_history (F-006)"
     },
     {
       "id": "erc20-allowance-invariant",
@@ -55,10 +55,10 @@
       "harness_assumptions": ["Contract implements IERC20"],
       "source_provenance": "crytic/properties",
       "source_commit": "",
-      "status": "VERIFIED",
+      "status": "CANDIDATE",
       "version": "1.0.0",
       "validation_history": [],
-      "deprecation_reason": null
+      "deprecation_reason": "Demoted from VERIFIED — no source_commit, no validation_history (F-006)"
     },
     {
       "id": "erc4626-total-assets-invariant",
@@ -91,10 +91,10 @@
       "harness_assumptions": ["Contract has borrow/repay/liquidate functions", "Collateral ratio is queryable"],
       "source_provenance": "derived-from:DeFiHackLabs/euler",
       "source_commit": "",
-      "status": "VERIFIED",
+      "status": "CANDIDATE",
       "version": "1.0.0",
       "validation_history": [],
-      "deprecation_reason": null
+      "deprecation_reason": "Demoted from VERIFIED — no source_commit, no validation_history (F-006)"
     },
     {
       "id": "governance-vote-weight-invariant",
@@ -109,10 +109,10 @@
       "harness_assumptions": ["Contract has Governor-like proposal/vote flow"],
       "source_provenance": "derived-from:rekt.news/beanstalk",
       "source_commit": "",
-      "status": "VERIFIED",
+      "status": "CANDIDATE",
       "version": "1.0.0",
       "validation_history": [],
-      "deprecation_reason": null
+      "deprecation_reason": "Demoted from VERIFIED — no source_commit, no validation_history (F-006)"
     },
     {
       "id": "bridge-mint-backed-by-collateral",
@@ -127,10 +127,10 @@
       "harness_assumptions": ["Contract is a bridge/lock-mint system", "Source chain balance is observable or mockable"],
       "source_provenance": "derived-from:rekt.news/wormhole",
       "source_commit": "",
-      "status": "VERIFIED",
+      "status": "CANDIDATE",
       "version": "1.0.0",
       "validation_history": [],
-      "deprecation_reason": null
+      "deprecation_reason": "Demoted from VERIFIED — no source_commit, no validation_history (F-006)"
     },
     {
       "id": "dex-k-constant-invariant",
@@ -145,10 +145,10 @@
       "harness_assumptions": ["Contract is a constant-product AMM", "getReserves() is available"],
       "source_provenance": "manual",
       "source_commit": "",
-      "status": "VERIFIED",
+      "status": "CANDIDATE",
       "version": "1.0.0",
       "validation_history": [],
-      "deprecation_reason": null
+      "deprecation_reason": "Demoted from VERIFIED — no source_commit, no validation_history (F-006)"
     },
     {
       "id": "proxy-implementation-invariant",
@@ -181,10 +181,10 @@
       "harness_assumptions": ["Contract implements IERC721"],
       "source_provenance": "crytic/properties",
       "source_commit": "",
-      "status": "VERIFIED",
+      "status": "CANDIDATE",
       "version": "1.0.0",
       "validation_history": [],
-      "deprecation_reason": null
+      "deprecation_reason": "Demoted from VERIFIED — no source_commit, no validation_history (F-006)"
     }
   ]
 }

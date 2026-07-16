@@ -16,6 +16,14 @@ class BuildError(Exception):
     pass
 
 
+# Minimal environment for subprocess execution — strips host secrets (F-015/F-016)
+_SECURE_ENV = {
+    "PATH": os.environ.get("PATH", "/usr/bin:/bin"),
+    "HOME": os.environ.get("HOME", "/tmp"),
+    "USER": os.environ.get("USER", "nobody"),
+}
+
+
 class BuildExecutor:
     """Compiles smart contracts using the detected framework's build system."""
 
@@ -33,7 +41,9 @@ class BuildExecutor:
             (success, manifest, build_log)
         """
         start = time.time()
-        build_env = {**os.environ, **(env or {})}
+        build_env = dict(_SECURE_ENV)
+        if env:
+            build_env.update(env)
 
         if self.sandbox and self.sandbox.use_sandbox:
             return self._build_in_sandbox(timeout_s, build_env)

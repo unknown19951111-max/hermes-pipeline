@@ -183,7 +183,7 @@ contract PoC_{tool_name}_{rule_id} is Test {{
         """Verify that the PoC compiles."""
         try:
             result = subprocess.run(
-                ["forge", "build", "--via-ir", "--force"],
+                ["forge", "build", "--force"],
                 cwd=target_dir,
                 capture_output=True, text=True,
                 timeout=60,

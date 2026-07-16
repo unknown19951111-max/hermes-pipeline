@@ -43,7 +43,10 @@ class FindingNormalizer:
         # JSON Schema validation (when schema is loaded)
         if self.schema is not None:
             try:
-                jsonschema.validate(finding, self.schema)
+                jsonschema.validate(
+                    finding, self.schema,
+                    format_checker=jsonschema.Draft7Validator.FORMAT_CHECKER,
+                )
             except jsonschema.ValidationError as e:
                 errors.append(f"Schema validation error: {e.message}")
                 return errors  # Early return — schema is authoritative

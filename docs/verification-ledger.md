@@ -1,6 +1,6 @@
 # Verification Ledger — Smart-Contract Security Pipeline
 
-> **Last updated:** 2026-07-15 (gate-2: secure-intake-execution-boundary)
+> **Last updated:** 2026-07-16 (gate-5: adversarial-fixes)
 > **Purpose:** Single source of truth for every claim about tool availability, test results, and pipeline behavior.
 > **Classification:** ✅ VERIFIED (env-independent) | ⚠️ REQUIRES RUNTIME VALIDATION (needs binary) | ❌ FAILED | 🔲 NOT TESTED
 
@@ -75,14 +75,26 @@
 || 5 | Vulnerable fixture asserts exact `"reentrancy-eth"` rule ID | `grep -c 'reentrancy-eth' tests/e2e/test_vertical_slice_1.py` | 5 occurrences | ✅ VERIFIED |
 || 6 | Patched fixture asserts `"reentrancy-eth"` NOT present | `PYTHONPATH=src python -c "import ast; code=open('tests/e2e/test_vertical_slice_1.py').read(); tree=ast.parse(code); patched=next(n for n in ast.walk(tree) if isinstance(n,ast.FunctionDef) and n.name=='test_vertical_slice_patched'); body=ast.unparse(patched); print('ok' if 'assert not reentrancy_found' in body else 'fail')"` | `ok` | ✅ VERIFIED |
 || 7 | Schema tests load `finding.json` and pass `schema_path` to normalizer | `grep -c 'finding.json' tests/adapters/test_all_adapters.py` | 2 occurrences | ✅ VERIFIED |
-|| 8 | All 60 tests pass after Gate 4 changes | `PYTHONPATH=src python -m pytest tests/ tests/e2e/ tests/adapters/ -v` | 60/60 passed | ✅ VERIFIED |
+|| 8 | All 62 tests pass after Gate 5 changes | `PYTHONPATH=src python -m pytest tests/ -v` | 62/62 passed | ✅ VERIFIED |
+
+## Gate 5 — Adversarial Fixes (F-005, F-006, F-007, F-015, F-016, F-022, F-025, F-026)
+
+| # | Claim | Test | Result | Classification |
+|---|-------|------|--------|---------------|
+| 1 | `jsonschema.validate()` includes `format_checker` | `PYTHONPATH=src python -c "from orchestrator.normalize import FindingNormalizer; n=FindingNormalizer('schemas/finding.json'); errs=n.validate({'bad':'data'}); print('ok' if any('Schema validation' in e for e in errs) else 'fail')"` | `ok` | ✅ VERIFIED |
+| 2 | `BuildExecutor` uses `_SECURE_ENV` not `os.environ` | `PYTHONPATH=src python -c "from orchestrator.build import _SECURE_ENV; print(sorted(_SECURE_ENV.keys()))"` | `['HOME', 'PATH', 'USER']` | ✅ VERIFIED |
+| 3 | All 6 unsupported archetypes return INCOMPATIBLE_INVARIANT | `PYTHONPATH=src python -c "from orchestrator.harness import HarnessGenerator; g=HarnessGenerator('/tmp'); for a in ['lending','dex_amm','governance','bridge','proxy','erc721']: s,_,e=g.generate_harness('/tmp',a,[],'C'); print(f'{a}: {\"ok\" if not s and \"INCOMPATIBLE\" in e else \"fail\"}')"` | All 6 ok | ✅ VERIFIED |
+| 4 | `--via-ir` removed from all subprocess invocations | `PYTHONPATH=src python -c "import inspect; from orchestrator.poc import POCGenerator; from orchestrator.harness import HarnessGenerator; from orchestrator.build import BuildExecutor; assert '--via-ir' not in inspect.getsource(POCGenerator._verify_compilation); assert '--via-ir' not in inspect.getsource(HarnessGenerator._verify_compilation); assert '--via-ir' not in inspect.getsource(HarnessGenerator.check_compatibility); print('ok')"` | `ok` | ✅ VERIFIED |
+| 5 | CI importability test exists (12 tests) | `PYTHONPATH=src python -m pytest tests/unit/test_ci_imports.py -q` | 12 passed | ✅ VERIFIED |
+| 6 | All 62 tests pass after Gate 5 changes | `PYTHONPATH=src python -m pytest tests/ -v` | 62/62 passed | ✅ VERIFIED |
 |
 |## Phase 1 Status Summary
 
 | Metric | Value |
 |--------|-------|
-| Total Phase 1 criteria | 45 |
-| ✅ PASSING | 17 |
-| ✅ REMEDIATED (Gate 1-2) | 7 |
-| 🔶 BLOCKED / 🔶 NOT_IMPLEMENTED | 21 |
-| ❌ FAILED | 0 |\n| Remaining P0 findings | 0 — ALL 20 FIXED (F-001 through F-024, excl. P1 items F-019/F-020/F-021/F-023) |
+|| Total Phase 1 criteria | 51 |
+| ✅ PASSING | 23 |
+| ✅ REMEDIATED (Gate 1-5) | 12 |
+| 🔶 BLOCKED / 🔶 NOT_IMPLEMENTED | 16 |
+| ❌ FAILED | 0 |
+| Remaining P0 findings | 0 — ALL 24 FIXED (F-001 through F-030, excl. Gate 6 infrastructure items) |

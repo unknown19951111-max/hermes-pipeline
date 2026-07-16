@@ -73,10 +73,10 @@
       "harness_assumptions": ["Contract implements IERC4626", "Share price must not be manipulable on first deposit"],
       "source_provenance": "crytic/properties",
       "source_commit": "",
-      "status": "VERIFIED",
+      "status": "CANDIDATE",
       "version": "1.0.0",
       "validation_history": [],
-      "deprecation_reason": null
+      "deprecation_reason": "Demoted from VERIFIED — no source_commit, no validation_history (F-006)"
     },
     {
       "id": "lending-health-factor-invariant",

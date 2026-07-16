@@ -31,6 +31,8 @@ class HarnessGenerator:
         "dex_amm": "DEX constant product invariant not yet implemented — requires getReserves() integration",
         "governance": "Governance vote snapshot invariant not yet implemented — requires proposal flow integration",
         "bridge": "Bridge mint-bound invariant not yet implemented — requires cross-chain balance tracking",
+        "proxy": "Proxy implementation invariant not yet implemented — requires upgradeable proxy pattern detection",
+        "erc721": "ERC-721 total supply invariant not yet implemented — requires IERC721 metadata integration",
     }
 
     def generate_harness(self, target_dir: str, archetype: str,
@@ -119,7 +121,11 @@ contract InvariantTest is Test {{
         return harness
 
     def _get_archetype_invariants(self, archetype: str, contract_name: str) -> str:
-        """Get invariant assertion functions for the given archetype."""
+        """Get invariant assertion functions for the given archetype.
+
+        Archetypes not listed here (lending, dex_amm, governance, bridge, proxy, erc721)
+        are caught by INCOMPATIBLE_INVARIANTS before this method is called.
+        """
         invariants = ""
         
         if archetype == "erc20" or archetype == "erc4626":
@@ -144,35 +150,6 @@ contract InvariantTest is Test {{
             uint256 minAssets = target.convertToShares(target.balanceOf(address(this)));
             assertGe(target.totalAssets(), minAssets, "totalAssets < minimum expected");
         }
-    }
-    
-"""
-        if archetype == "lending":
-            invariants += """    /// @dev Invariant: health factor must be > 1 for all positions
-    function invariant_healthFactor() public {
-        // Lending-specific health check — requires protocol-specific implementation
-        // Each borrowing position must maintain collateral ratio
-    }
-    
-"""
-        if archetype == "dex_amm":
-            invariants += """    /// @dev Invariant: constant product (x*y=k) must hold
-    function invariant_constantProduct() public {
-        // DEX-specific check — requires getReserves() implementation
-    }
-    
-"""
-        if archetype == "governance":
-            invariants += """    /// @dev Invariant: vote weight must be snapshot-protected
-    function invariant_voteSnapshot() public {
-        // Governance-specific check — requires proposal flow
-    }
-    
-"""
-        if archetype == "bridge":
-            invariants += """    /// @dev Invariant: total minted must not exceed total locked
-    function invariant_mintBound() public {
-        // Bridge-specific check — requires cross-chain balance tracking
     }
     
 """
@@ -205,7 +182,7 @@ contract InvariantTest is Test {{
         """Verify that the generated harness compiles with forge build."""
         try:
             result = subprocess.run(
-                ["forge", "build", "--via-ir", "--force"],
+                ["forge", "build", "--force"],
                 cwd=target_dir,
                 capture_output=True, text=True,
                 timeout=120,
@@ -231,7 +208,7 @@ contract InvariantTest is Test {{
         # Check if target compiles
         try:
             result = subprocess.run(
-                ["forge", "build", "--via-ir"],
+                ["forge", "build"],
                 cwd=target_dir,
                 capture_output=True, text=True,
                 timeout=60,

@@ -293,23 +293,3 @@ def test_vertical_slice_patched():
         return None
 
 
-if __name__ == "__main__":
-    print("=" * 60)
-    print("HERMES PIPELINE — VERTICAL SLICE 1")
-    print("Intake → Detect → Build → Slither → Normalize → Schema → Store → Report")
-    print("=" * 60)
-    
-    start = time.time()
-    
-    vuln_findings = test_vertical_slice_vulnerable()
-    patched_findings = test_vertical_slice_patched()
-    
-    elapsed = time.time() - start
-    
-    print(f"\n{'='*60}")
-    print(f"VERTICAL SLICE 1 COMPLETE")
-    print(f"  Vulnerable findings: {len(vuln_findings)}")
-    print(f"  Patched findings: {len(patched_findings)}")
-    print(f"  Duration: {elapsed:.1f}s")
-    print(f"  Status: ✅ PASSED")
-    print(f"{'='*60}")

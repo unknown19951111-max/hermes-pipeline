@@ -1,0 +1,64 @@
+name: CI
+
+on:
+  push:
+    branches: [master, main]
+  pull_request:
+    branches: [master, main]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: /workspace
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        run: |
+          python3 -m pip install --upgrade pip
+          pip3 install halmos eth-wake slither-analyzer aderyn
+
+      - name: Install Foundry
+        uses: foundry-rs/foundry-toolchain@v1
+        with:
+          version: stable
+
+      - name: Install hevm
+        run: |
+          curl -sL "https://github.com/argotorg/hevm/releases/download/release/0.58.0/hevm-x86_64-linux" -o /usr/local/bin/hevm
+          chmod +x /usr/local/bin/hevm
+          hevm version
+
+      - name: Run unit tests
+        run: |
+          python3 tests/unit/test_classifier.py
+          python3 tests/unit/test_invariant_registry.py
+          python3 tests/unit/test_phase1_remaining.py
+
+      - name: Run adapter tests
+        run: |
+          python3 tests/adapters/test_all_adapters.py
+          python3 tests/adapters/test_depth_tier.py
+          python3 tests/adapters/test_non_evm.py
+
+      - name: Run E2E test
+        run: |
+          python3 tests/e2e/test_vertical_slice_1.py
+
+      - name: Test CLI
+        run: |
+          PYTHONPATH=src python3 -m orchestrator.cli detect fixtures/vulnerable
+          PYTHONPATH=src python3 -m orchestrator.cli list-tools
+          PYTHONPATH=src python3 -m orchestrator.cli run fixtures/vulnerable --output /tmp/ci-results.json
+          echo "CLI findings: $(python3 -c "import json; d=json.load(open('/tmp/ci-results.json')); print(len(d['findings']))")"
+
+      - name: Summary
+        run: echo "CI ✅ — all tests passed"

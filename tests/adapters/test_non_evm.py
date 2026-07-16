@@ -69,8 +69,8 @@ check("Solana CLI cmd", "solana program" in " ".join(s.build_command("/tmp")))
 check("Solana no findings", len(s.parse_output("", "", [])) == 0)
 
 t = TridentAdapter("/tmp")
-check("Trident deps", not t.check_dependencies())  # trident not installed
-check("Trident version", t.get_version() == "unknown")
+check("Trident deps", t.check_dependencies())  # now installed
+check("Trident version", t.get_version() != "")
 
 # Move adapters — graceful degradation
 a2 = AptosAdapter("/tmp")

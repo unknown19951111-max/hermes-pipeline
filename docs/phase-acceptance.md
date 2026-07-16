@@ -1,8 +1,8 @@
 # Phase Acceptance — Smart-Contract Security Pipeline
 
-> **Last updated:** 2026-07-15 (gate-2: secure-intake-execution-boundary)
+> **Last updated:** 2026-07-15 (gate-4: schema-eligibility-poc-e2e)
 > **Status generated from:** `AUDIT_ACCEPTANCE_LEDGER.json` — do not edit manually
-> **Production status:** ❌ BLOCKED — 14 P0 findings prevent release (6 fixed in Gate 2)
+> **Production status:** ❌ BLOCKED — 0 P0 findings remain (all 20 fixed). Phase 1 blocked by NOT_IMPLEMENTED items (Medusa, corpus, PoC execution).
 
 ## Phase 1 — EVM Production MVP
 
@@ -15,25 +15,25 @@ Phase 1 is complete only when ALL of the following pass:
 || 1 | Remote repository can be submitted | ✅ REMEDIATED | `RepositoryManager.intake_remote()` — F-002 fixed: URL-derived owner/name from `url.split(\"/\")[-2:]` |
 || 2 | Local project can be submitted | ✅ REMEDIATED | `intake_local()` — F-003 fixed: pre-copy symlink walk + `SymlinkIntakeError` rejection |
 | 3 | Target commit is pinned | ✅ UNIT_VALIDATED | `IntakeManifest.commit_sha` recorded in E2E test |
-| 4 | Intake manifest generated | 🔶 BLOCKED | Manifest generated but F-005: no JSON Schema validation |
-| 5 | Program eligibility can be captured | ❌ FAILED | `EligibilitySnapshot.create()` — F-001: field mismatch `status` vs `program_status` |
+|| 4 | Intake manifest generated | ✅ UNIT_VALIDATED | Manifest generated. F-005 fixed: JSON Schema validation via `jsonschema.validate()` |
+|| 5 | Program eligibility can be captured | ✅ REMEDIATED | `EligibilitySnapshot.create()` — F-001 fixed: `_validate()` now requires `"program_status"` (not `"status"`), matching `create()` output |
 | 6 | Ecosystem detection works | ✅ INTEGRATION_VALIDATED | E2E: evm @ 1.00 confidence |
 | 7 | Framework detection works | ✅ INTEGRATION_VALIDATED | E2E: foundry @ 0.95 confidence |
 | 8 | Ambiguous detection fails safely | ✅ UNIT_VALIDATED | Returns `unknown` @ 0.0 confidence |
 || 9 | Target compiles with pinned compiler | ✅ REMEDIATED | `BuildExecutor._build_foundry()` — F-022 fixed: `--via-ir` removed, F-023 fixed: `env=env` passed, F-015 fixed: sandbox parameter wired |
 | 10 | Compiler logs preserved | ✅ UNIT_VALIDATED | `artifact_store.store_build_log()` works |
-|| 11 | Slither runs through its own adapter | 🔶 BLOCKED | Adapter runs but F-004: success calc wrong. F-015 fixed: sandbox parameter wired. F-016 fixed: `_SECURE_ENV` whitelist enforced. |
-|| 12 | Aderyn runs through its own adapter | 🔶 BLOCKED | F-004 still open (success calc). F-015 fixed: sandbox wired. F-016 fixed: `_SECURE_ENV` enforced. |
+||| 11 | Slither runs through its own adapter | ✅ REMEDIATED | F-004 fixed: success = process_success AND parse_success. F-015 fixed: sandbox parameter wired. F-016 fixed: `_SECURE_ENV` whitelist enforced. |
+||| 12 | Aderyn runs through its own adapter | ✅ REMEDIATED | F-004 fixed: success = process_success AND parse_success. F-015 fixed: sandbox wired. F-016 fixed: `_SECURE_ENV` enforced. |
 | 13 | Tool versions recorded | ✅ UNIT_VALIDATED | `AdapterResult.tool_version` in manifest |
 | 14 | Raw outputs preserved | ✅ UNIT_VALIDATED | `artifact_store.store_raw_output()` |
-| 15 | Outputs normalize against shared schema | 🔶 BLOCKED | F-005: no `jsonschema.validate()` call, F-024: tests don't use schema |
-| 16 | Malformed outputs quarantined | 🔶 BLOCKED | F-005: schema validation ineffective |
+|| 15 | Outputs normalize against shared schema | ✅ REMEDIATED | F-005 fixed: `FindingNormalizer.validate()` now calls `jsonschema.validate()` against `schemas/finding.json`. F-024 fixed: schema tests load real schema and pass `schema_path` to normalizer. |
+|| 16 | Malformed outputs quarantined | ✅ REMEDIATED | F-005 fixed: `jsonschema.validate()` catches malformed outputs, quarantined as `analysis_failure` |
 | 17 | At least one archetype selected from evidence | ✅ UNIT_VALIDATED | Classifier: 12 archetypes, rule-based |
 | 18 | Multi-label classification works | ✅ UNIT_VALIDATED | Test: erc4626+staking detected |
-| 19 | Compatible invariant set selected | 🔶 BLOCKED | F-006: registry references phantom invariant IDs |
+|| 19 | Compatible invariant set selected | ✅ REMEDIATED | F-006 fixed: 9 phantom invariants demoted to CANDIDATE. `can_promote_to_verified()` enforces 8 evidence gates. |
 | 20 | Incompatible invariants rejected | ✅ UNIT_VALIDATED | Test: compiler 0.6.0 correctly rejected |
-| 21 | Chimera-compatible harness generated | 🔶 BLOCKED | F-007: 4 archetypes produce empty no-op functions, F-008: tautological assertion |
-| 22 | Harness compiles | 🔶 BLOCKED | Empty invariants compile successfully as no-ops (F-007, F-008) |
+|| 21 | Chimera-compatible harness generated | ✅ REMEDIATED | F-007 fixed: 4 unsupported archetypes return INCOMPATIBLE_INVARIANT. F-008 fixed: ERC-4626 uses `assertGe` instead of tautological `assertTrue`. |
+|| 22 | Harness compiles | ✅ REMEDIATED | F-007, F-008 fixed: incompatible archetypes return INCOMPATIBLE_INVARIANT, ERC-4626 has meaningful assertion |
 | 23 | Medusa executes | 🔶 NOT_IMPLEMENTED | `medusa` binary not installed. Dependency check passes (graceful) |
 | 24 | Medusa corpus preserved | 🔶 NOT_IMPLEMENTED | No corpus preservation in execution path |
 | 25 | Initial corpus hash recorded | 🔶 NOT_IMPLEMENTED | Not implemented |
@@ -45,9 +45,9 @@ Phase 1 is complete only when ALL of the following pass:
 | 31 | Echidna failure does not destroy job | ✅ UNIT_VALIDATED | `AdapterResult` preserves partial results |
 | 32 | Duplicates grouped deterministically | 🔶 IMPLEMENTED_UNTESTED | Dedup exists but cross-tool grouping untested |
 | 33 | Confidence follows documented rubric | ✅ UNIT_VALIDATED | 0-5 rubric in `finding.json` schema |
-| 34 | Known-positive fixture detected | 🔶 BLOCKED | F-010: accepts any Slither warning, not exact `reentrancy-eth` |
-| 35 | Patched fixture does not produce same confirmed result | 🔶 BLOCKED | F-011: no assertion that `reentrancy-eth` is absent |
-| 36 | Qualifying result reproduced via Foundry PoC | 🔶 BLOCKED | F-009: PoC returns True for both PASSED and FAILED |
+|| 34 | Known-positive fixture detected | ✅ REMEDIATED | F-010 fixed: asserts exact `"reentrancy-eth"` rule ID, no soft-pass fallback |
+|| 35 | Patched fixture does not produce same confirmed result | ✅ REMEDIATED | F-011 fixed: asserts `"reentrancy-eth"` is absent from patched findings |
+|| 36 | Qualifying result reproduced via Foundry PoC | 🔶 NOT_IMPLEMENTED | F-009 fixed: `_reproduce_test()` returns False for PASSED, True only for FAILED. PoC generation still requires end-to-end fuzzing. |
 | 37 | PoC uses pinned target state | 🔶 NOT_IMPLEMENTED | Not enforced in PoC generation |
 | 38 | Human-review queue receives qualifying result | 🔶 IMPLEMENTED_UNTESTED | `HumanReviewQueue` exists but not integrated into CLI |
 | 39 | Final report includes full provenance | ✅ INTEGRATION_VALIDATED | Report generator: stage_results, timestamps |
@@ -70,7 +70,7 @@ Phase 1 is complete only when ALL of the following pass:
 
 ### Phase 1 Status: ❌ BLOCKED
 
-**14 P0 findings prevent Phase 1 completion.** 6 fixed in Gate 2 (F-002, F-003, F-015, F-016, F-022, F-023). Remaining: intake manifest (F-005), eligibility (F-001), adapter success (F-004), invariant registry (F-006), harness generation (F-007, F-008), PoC verification (F-009), E2E tests (F-010, F-011), CI (F-012, F-013), documentation (F-017, F-018).
+**All 20 P0 findings fixed across 4 gates.** Remaining: 21 NOT_IMPLEMENTED / IMPLEMENTED_UNTESTED items (Medusa corpus, PoC execution, cross-tool dedup, human-review integration, et al.). Phase 1 remains BLOCKED until NOT_IMPLEMENTED items are addressed.
 
 ---
 

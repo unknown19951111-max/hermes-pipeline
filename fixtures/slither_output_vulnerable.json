@@ -1,0 +1,122 @@
+[
+  {
+    "finding_id": "749147b2-b0fb-462f-8c28-fcfada983acb",
+    "classification": "tool_generated_warning",
+    "severity": "high",
+    "confidence": {
+      "level": 1,
+      "evidence_level": "single_tool",
+      "evidence_sources": [
+        "slither"
+      ]
+    },
+    "tool": {
+      "name": "slither",
+      "version": "0.11.4",
+      "rule_id": "reentrancy-eth"
+    },
+    "location": {
+      "file": "src/VulnerableVault.sol",
+      "start_line": 23,
+      "end_line": 35
+    },
+    "vulnerability_category": "reentrancy",
+    "title": "Slither: reentrancy-eth",
+    "description": "Reentrancy in VulnerableVault.withdraw(uint256) (src/VulnerableVault.sol#23-35):\n\tExternal calls:\n\t- (success,None) = msg.sender.call{value: amount}() (src/VulnerableVault.sol#29)\n\tState variables written after the call(s):\n\t- balances[msg.sender] -= amount (src/VulnerableVault.sol#32)\n\tVulnerableVault.balances (src/VulnerableVault.sol#10) can be used in cross function reentrancies:\n\t- VulnerableVault.balances (src/VulnerableVault.sol#10)\n\t- VulnerableVault.deposit() (src/VulnerableVault.sol#17-21)\n\t- VulnerableVault.getBalance(address) (src/VulnerableVault.sol#37-39)\n\t- VulnerableVault.withdraw(uint256) (src/VulnerableVault.sol#23-35)\n",
+    "deduplication_group": "slither-reentrancy-eth-src/VulnerableVault.sol:23",
+    "reproduction": {
+      "status": "none"
+    },
+    "schema_version": "1.0.0"
+  },
+  {
+    "finding_id": "0c9f5402-84e4-4d44-aaa2-799d279bdfa2",
+    "classification": "tool_generated_warning",
+    "severity": "low",
+    "confidence": {
+      "level": 1,
+      "evidence_level": "single_tool",
+      "evidence_sources": [
+        "slither"
+      ]
+    },
+    "tool": {
+      "name": "slither",
+      "version": "0.11.4",
+      "rule_id": "reentrancy-events"
+    },
+    "location": {
+      "file": "src/VulnerableVault.sol",
+      "start_line": 23,
+      "end_line": 35
+    },
+    "vulnerability_category": "reentrancy",
+    "title": "Slither: reentrancy-events",
+    "description": "Reentrancy in VulnerableVault.withdraw(uint256) (src/VulnerableVault.sol#23-35):\n\tExternal calls:\n\t- (success,None) = msg.sender.call{value: amount}() (src/VulnerableVault.sol#29)\n\tEvent emitted after the call(s):\n\t- Withdrawn(msg.sender,amount) (src/VulnerableVault.sol#34)\n",
+    "deduplication_group": "slither-reentrancy-events-src/VulnerableVault.sol:23",
+    "reproduction": {
+      "status": "none"
+    },
+    "schema_version": "1.0.0"
+  },
+  {
+    "finding_id": "372d3fff-27f1-4936-80bb-e8311336a9d8",
+    "classification": "tool_generated_warning",
+    "severity": "informational",
+    "confidence": {
+      "level": 1,
+      "evidence_level": "single_tool",
+      "evidence_sources": [
+        "slither"
+      ]
+    },
+    "tool": {
+      "name": "slither",
+      "version": "0.11.4",
+      "rule_id": "solc-version"
+    },
+    "location": {
+      "file": "src/VulnerableVault.sol",
+      "start_line": 2,
+      "end_line": 2
+    },
+    "vulnerability_category": "access_control",
+    "title": "Slither: solc-version",
+    "description": "Version constraint ^0.8.20 contains known severe issues (https://solidity.readthedocs.io/en/latest/bugs.html)\n\t- VerbatimInvalidDeduplication\n\t- FullInlinerNonExpressionSplitArgumentEvaluationOrder\n\t- MissingSideEffectsOnSelectorAccess.\nIt is used by:\n\t- ^0.8.20 (src/VulnerableVault.sol#2)\n",
+    "deduplication_group": "slither-solc-version-src/VulnerableVault.sol:2",
+    "reproduction": {
+      "status": "none"
+    },
+    "schema_version": "1.0.0"
+  },
+  {
+    "finding_id": "f3023b45-6470-4dac-be92-5ef7c97d6018",
+    "classification": "tool_generated_warning",
+    "severity": "informational",
+    "confidence": {
+      "level": 1,
+      "evidence_level": "single_tool",
+      "evidence_sources": [
+        "slither"
+      ]
+    },
+    "tool": {
+      "name": "slither",
+      "version": "0.11.4",
+      "rule_id": "low-level-calls"
+    },
+    "location": {
+      "file": "src/VulnerableVault.sol",
+      "start_line": 23,
+      "end_line": 35
+    },
+    "vulnerability_category": "other",
+    "title": "Slither: low-level-calls",
+    "description": "Low level call in VulnerableVault.withdraw(uint256) (src/VulnerableVault.sol#23-35):\n\t- (success,None) = msg.sender.call{value: amount}() (src/VulnerableVault.sol#29)\n",
+    "deduplication_group": "slither-low-level-calls-src/VulnerableVault.sol:23",
+    "reproduction": {
+      "status": "none"
+    },
+    "schema_version": "1.0.0"
+  }
+]

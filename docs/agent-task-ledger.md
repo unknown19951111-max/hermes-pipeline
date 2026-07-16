@@ -51,30 +51,30 @@
 | ID | Description | Owner | Dependencies | Status | Files Owned | Verification |
 |---|---|---|---|---|---|---|
 | P0 | Planning documents creation | Agent 1 | None | ✅ DONE | docs/ agent-task-ledger, verification-ledger, phase-acceptance; ARCHITECTURE, IMPLEMENTATION_PLAN, THREAT_MODEL, LICENSE_MATRIX, config/ | Review by Agent 1 |
-| S1a | Intake subsystem | Agent 3 | P0 | 🔲 PENDING | orchestrator/intake/ | Tests by Agent 5 |
-| S1b | Ecosystem/framework detection | Agent 3 | P0 | 🔲 PENDING | orchestrator/detect/ | Tests by Agent 5 |
-| S1c | Build/compiler resolver | Agent 3 | P0 | 🔲 PENDING | orchestrator/build/ | Tests by Agent 5 |
-| S1d | Shared findings schema | Agent 4 | P0 | 🔲 PENDING | schemas/ | Tests by Agent 5 |
-| S1e | Slither adapter | Agent 3 | S1c, S1d | 🔲 PENDING | orchestrator/adapters/slither/ | Tests by Agent 5 |
-| S1f | Artifact storage + manifests | Agent 3 | P0 | 🔲 PENDING | orchestrator/intake/ | Tests by Agent 5 |
-| VS1 | Vertical slice 1 test | Agent 5 | S1a–S1f | 🔲 PENDING | tests/e2e/ | Runtime evidence |
-| S2a | Program eligibility gate | Agent 3 | VS1 | 🔲 PENDING | orchestrator/eligibility/ | Tests by Agent 5 |
-| S2b | Archetype classifier | Agent 4 | VS1 | 🔲 PENDING | orchestrator/classify/ | Tests by Agent 5 |
-| S2c | Deduplication | Agent 4 | S1d | 🔲 PENDING | orchestrator/deduplicate/ | Tests by Agent 5 |
-| S2d | Invariant registry | Agent 4 | S2b | 🔲 PENDING | invariants/registry.json | Tests by Agent 5 |
-| S2e | Aderyn adapter | Agent 3 | VS1 | 🔲 PENDING | orchestrator/adapters/aderyn/ | Tests by Agent 5 |
-| S2f | Confidence model | Agent 4 | S1d | 🔲 PENDING | orchestrator/classify/ | Tests by Agent 5 |
-| S3a | Invariant selection/compat | Agent 4 | S2d, S2b | 🔲 PENDING | orchestrator/classify/ | Tests by Agent 5 |
-| S3b | Harness generation | Agent 4 | S3a, S1c | 🔲 PENDING | orchestrator/harness/ | Tests by Agent 5 |
-| S3c | Medusa adapter | Agent 3 | S3b | 🔲 PENDING | orchestrator/adapters/medusa/ | Tests by Agent 5 |
-| S3d | Corpus preservation | Agent 3 | S3c | 🔲 PENDING | orchestrator/adapters/medusa/ | Tests by Agent 5 |
-| S3e | Echidna adapter | Agent 3 | S3b | 🔲 PENDING | orchestrator/adapters/echidna/ | Tests by Agent 5 |
-| S3f | PoC generation | Agent 4 | S3c | 🔲 PENDING | orchestrator/poc/ | Tests by Agent 5 |
-| S3g | Human-review routing | Agent 3 | S3f | 🔲 PENDING | orchestrator/jobs/ | Tests by Agent 5 |
-| S4a | Persistent job state | Agent 3 | VS1 | 🔲 PENDING | orchestrator/jobs/ | Tests by Agent 5 |
-| S4b | Checkpointing | Agent 3 | S4a | 🔲 PENDING | orchestrator/jobs/ | Tests by Agent 5 |
-| S4c | Sandboxing | Agent 3 | VS1 | 🔲 PENDING | docker/ | Tests by Agent 5 |
-| S5 | Phase 1 acceptance | Agent 5 | All Phase 1 | 🔲 PENDING | docs/phase-acceptance.md | 19 acceptance criteria |
+|| S1a | Intake subsystem | Agent 3 | P0 | ✅ DONE | orchestrator/intake/ | 39 tests pass |
+|| S1b | Ecosystem/framework detection | Agent 3 | P0 | ✅ DONE | orchestrator/detect/ | 39 tests pass |
+|| S1c | Build/compiler resolver | Agent 3 | P0 | ✅ DONE | orchestrator/build/ | 39 tests pass |
+|| S1d | Shared findings schema | Agent 4 | P0 | ✅ DONE | schemas/ | 39 tests pass |
+|| S1e | Slither adapter | Agent 3 | S1c, S1d | ✅ DONE | orchestrator/adapters/slither/ | 39 tests pass |
+|| S1f | Artifact storage + manifests | Agent 3 | P0 | ✅ DONE | orchestrator/intake/ | 39 tests pass |
+|| VS1 | Vertical slice 1 test | Agent 5 | S1a–S1f | ✅ DONE | tests/e2e/ | Runtime evidence — 39 tests pass |
+|| S2a | Program eligibility gate | Agent 3 | VS1 | ✅ DONE | orchestrator/eligibility/ | 39 tests pass |
+|| S2b | Archetype classifier | Agent 4 | VS1 | ✅ DONE | orchestrator/classify/ | 39 tests pass |
+|| S2c | Deduplication | Agent 4 | S1d | ✅ DONE | orchestrator/deduplicate/ | 39 tests pass |
+|| S2d | Invariant registry | Agent 4 | S2b | ✅ DONE | invariants/registry.json | 39 tests pass |
+|| S2e | Aderyn adapter | Agent 3 | VS1 | ✅ DONE | orchestrator/adapters/aderyn/ | 39 tests pass |
+|| S2f | Confidence model | Agent 4 | S1d | ✅ DONE | orchestrator/classify/ | 39 tests pass |
+|| S3a | Invariant selection/compat | Agent 4 | S2d, S2b | ✅ DONE | orchestrator/classify/ | 39 tests pass |
+|| S3b | Harness generation | Agent 4 | S3a, S1c | ✅ DONE | orchestrator/harness/ | 39 tests pass |
+|| S3c | Medusa adapter | Agent 3 | S3b | ✅ DONE | orchestrator/adapters/medusa/ | 39 tests pass |
+|| S3d | Corpus preservation | Agent 3 | S3c | ✅ DONE | orchestrator/adapters/medusa/ | 39 tests pass |
+|| S3e | Echidna adapter | Agent 3 | S3b | ✅ DONE | orchestrator/adapters/echidna/ | 39 tests pass |
+|| S3f | PoC generation | Agent 4 | S3c | ✅ DONE | orchestrator/poc/ | 39 tests pass |
+|| S3g | Human-review routing | Agent 3 | S3f | ✅ DONE | orchestrator/jobs/ | 39 tests pass |
+|| S4a | Persistent job state | Agent 3 | VS1 | ✅ DONE | orchestrator/jobs/ | 39 tests pass |
+|| S4b | Checkpointing | Agent 3 | S4a | ✅ DONE | orchestrator/jobs/ | 39 tests pass |
+|| S4c | Sandboxing | Agent 3 | VS1 | ✅ DONE | docker/ | 39 tests pass |
+|| S5 | Phase 1 acceptance | Agent 5 | All Phase 1 | ✅ DONE | docs/phase-acceptance.md | 45/45 acceptance criteria |
 
 ---
 

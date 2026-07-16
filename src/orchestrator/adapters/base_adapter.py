@@ -28,8 +28,11 @@ class AdapterResult:
     raw_output_paths: list[str]
     normalized_findings: list[dict] = field(default_factory=list)
     execution_manifest: dict = field(default_factory=dict)
-    error: Optional[str] = None
     coverage_limitations: list[str] = field(default_factory=list)
+    start_time: str = ""
+    end_time: str = ""
+    duration_seconds: float = 0.0
+    error: Optional[str] = None
 
     def to_manifest(self, job_id: str, stage_id: str, work_dir: str) -> dict:
         return {
@@ -43,9 +46,9 @@ class AdapterResult:
             "arguments": [],
             "working_directory": work_dir,
             "environment_allowlist": [],
-            "start_time": datetime.now(timezone.utc).isoformat(),
-            "end_time": datetime.now(timezone.utc).isoformat(),
-            "duration_seconds": 0,
+            "start_time": self.start_time or datetime.now(timezone.utc).isoformat(),
+            "end_time": self.end_time or datetime.now(timezone.utc).isoformat(),
+            "duration_seconds": self.duration_seconds,
             "exit_code": self.exit_code,
             "timeout": self.timed_out,
             "resources": {},
@@ -119,6 +122,7 @@ class ToolAdapter(ABC):
         cmd = self.build_command(target_dir, **kwargs)
         cmd_str = " ".join(str(c) for c in cmd)
 
+        _start = time.time()
         try:
             result = subprocess.run(
                 cmd, cwd=target_dir,
@@ -134,6 +138,8 @@ class ToolAdapter(ABC):
             stdout = ""
             stderr = f"TIMEOUT after {timeout_s}s"
             exit_code = -1
+
+        _end = time.time()
 
         # Save raw output
         output_paths = []
@@ -178,4 +184,7 @@ class ToolAdapter(ABC):
             raw_output_paths=output_paths,
             normalized_findings=normalized,
             error=None if success else stderr[:500] if stderr else "Unknown error",
+            start_time=datetime.fromtimestamp(_start, tz=timezone.utc).isoformat(),
+            end_time=datetime.fromtimestamp(_end, tz=timezone.utc).isoformat(),
+            duration_seconds=_end - _start,
         )

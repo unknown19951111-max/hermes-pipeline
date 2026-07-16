@@ -142,12 +142,33 @@ class ArtifactStore:
                 "pipeline_version": "0.1.0",
                 "schema_version": "1.0.0",
                 "generated_at": datetime.now(timezone.utc).isoformat(),
-                "duration_seconds": 0,
+                "duration_seconds": self._compute_duration(stage_results),
             },
             "schema_version": "1.0.0",
         }
-        
+
         return report
+
+    def _compute_duration(self, stage_results: list[dict]) -> float:
+        """Compute pipeline duration from stage result timestamps."""
+        start_times = []
+        end_times = []
+        for s in stage_results:
+            st = s.get("start_time", "")
+            et = s.get("end_time", "")
+            if st:
+                try:
+                    start_times.append(datetime.fromisoformat(st).timestamp())
+                except (ValueError, TypeError):
+                    pass
+            if et:
+                try:
+                    end_times.append(datetime.fromisoformat(et).timestamp())
+                except (ValueError, TypeError):
+                    pass
+        if start_times and end_times:
+            return max(end_times) - min(start_times)
+        return 0.0
 
     def store_report(self, job_id: str, report: dict) -> str:
         """Store the final report."""

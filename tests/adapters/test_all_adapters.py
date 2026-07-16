@@ -124,11 +124,47 @@ def test_schema_normalization():
     print(f"  ✅ Schema: {len(valid)} valid, {len(quarantined)} quarantined")
 
 
+def test_schema_normalization_from_fixture():
+    """Test normalizer logic with saved Slither output — no binary required."""
+    from orchestrator.normalize import FindingNormalizer
+
+    fixture_path = FIXTURE_DIR / "slither_output_vulnerable.json"
+    assert fixture_path.exists(), f"Fixture not found: {fixture_path}"
+
+    with open(fixture_path) as f:
+        findings = json.load(f)
+
+    assert len(findings) > 0, "Fixture should contain findings"
+    normalizer = FindingNormalizer()
+
+    valid, quarantined = normalizer.normalize(
+        findings,
+        job_id="fixture-test",
+        tool_name="slither",
+        tool_version="0.11.4",
+        adapter_version="0.1.0",
+    )
+
+    assert len(valid) > 0, "Should have valid normalized findings"
+    assert len(quarantined) == 0, "Should have no quarantined findings"
+
+    for f in valid:
+        assert "finding_id" in f, "Missing finding_id"
+        assert "classification" in f, "Missing classification"
+        assert "tool" in f, "Missing tool"
+        assert "tool" in f and "name" in f["tool"], "Missing tool.name"
+        assert "location" in f, "Missing location"
+        assert "provenance" in f, "Missing provenance"
+        assert "schema_version" in f, "Missing schema_version"
+
+    print(f"  ✅ Fixture-driven schema: {len(valid)} valid, {len(quarantined)} quarantined")
+
+
 if __name__ == "__main__":
     print("=" * 60)
     print("ADAPTER TESTS")
     print("=" * 60)
-    
+
     test_slither_adapter_dependency_check()
     test_slither_adapter_parse_vulnerable()
     test_aderyn_adapter_dependency_check()
@@ -136,7 +172,8 @@ if __name__ == "__main__":
     test_echidna_adapter_dependency_check()
     test_medusa_adapter_dependency_check()
     test_schema_normalization()
-    
+    test_schema_normalization_from_fixture()
+
     print(f"\n{'='*60}")
     print("ALL ADAPTER TESTS PASSED")
     print(f"{'='*60}")

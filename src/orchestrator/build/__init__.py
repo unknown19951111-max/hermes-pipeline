@@ -40,6 +40,7 @@ class BuildExecutor:
 
     def _build_foundry(self, timeout_s: int, env: dict) -> tuple[bool, dict, str]:
         """Build with Foundry."""
+        _start = time.time()
         try:
             r = subprocess.run(
                 ["forge", "build", "--via-ir"],
@@ -53,7 +54,7 @@ class BuildExecutor:
                 "framework": "foundry",
                 "success": r.returncode == 0,
                 "exit_code": r.returncode,
-                "duration_seconds": time.time() - (time.time() - 0),  # placeholder
+                "duration_seconds": time.time() - _start,
                 "compiler_version": self._extract_solc_version(log),
             }
             return r.returncode == 0, manifest, log
@@ -64,6 +65,7 @@ class BuildExecutor:
 
     def _build_hardhat(self, timeout_s: int, env: dict) -> tuple[bool, dict, str]:
         """Build with Hardhat."""
+        _start = time.time()
         try:
             r = subprocess.run(
                 ["npx", "hardhat", "compile"],
@@ -77,7 +79,7 @@ class BuildExecutor:
                 "framework": "hardhat",
                 "success": r.returncode == 0,
                 "exit_code": r.returncode,
-                "duration_seconds": time.time() - (time.time() - 0),
+                "duration_seconds": time.time() - _start,
                 "compiler_version": "",
             }
             return r.returncode == 0, manifest, log
@@ -88,6 +90,7 @@ class BuildExecutor:
 
     def _build_anchor(self, timeout_s: int, env: dict) -> tuple[bool, dict, str]:
         """Build with Anchor (Solana)."""
+        _start = time.time()
         try:
             r = subprocess.run(
                 ["anchor", "build"],
@@ -101,7 +104,7 @@ class BuildExecutor:
                 "framework": "anchor",
                 "success": r.returncode == 0,
                 "exit_code": r.returncode,
-                "duration_seconds": time.time() - (time.time() - 0),
+                "duration_seconds": time.time() - _start,
                 "compiler_version": "",
             }
             return r.returncode == 0, manifest, log

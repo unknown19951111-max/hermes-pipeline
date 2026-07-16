@@ -195,8 +195,8 @@ def test_vertical_slice_vulnerable():
         print(f"\n{'='*60}")
         print(f"VULNERABLE FIXTURE TEST: PASSED")
         print(f"{'='*60}")
-        
-        return deduped
+
+        return None
 
 
 def test_vertical_slice_patched():
@@ -289,8 +289,8 @@ def test_vertical_slice_patched():
         print(f"\n{'='*60}")
         print(f"PATCHED FIXTURE TEST: PASSED")
         print(f"{'='*60}")
-        
-        return valid
+
+        return None
 
 
 if __name__ == "__main__":

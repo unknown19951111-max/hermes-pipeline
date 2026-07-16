@@ -210,7 +210,7 @@ contract PoC_{tool_name}_{rule_id} is Test {{
 
             # Check if test passed or failed
             if "PASSED" in stdout and "FAILED" not in stdout:
-                return True, "Test passed (baseline OK)"
+                return False, "Test passed (baseline OK — no reproduction)"
             elif "FAILED" in stdout:
                 # Failed means our PoC test caught something — good reproduction
                 failure_lines = []

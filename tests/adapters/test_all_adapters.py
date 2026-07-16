@@ -93,13 +93,16 @@ def test_medusa_adapter_dependency_check():
 
 
 def test_schema_normalization():
-    """Test that adapter outputs normalize correctly."""
+    """Test that adapter outputs normalize correctly AND pass JSON Schema validation."""
     from orchestrator.normalize import FindingNormalizer
-    
+    import jsonschema
+
     adapter = SlitherAdapter("/tmp")
     result = adapter.run(VULNERABLE_DIR, "test-schema", timeout_s=120)
-    
-    normalizer = FindingNormalizer()
+
+    # Load real schema for validation
+    schema_path = str(Path(__file__).resolve().parent.parent.parent / "schemas" / "finding.json")
+    normalizer = FindingNormalizer(schema_path=schema_path)
     valid, quarantined = normalizer.normalize(
         result.normalized_findings,
         job_id="test-job",
@@ -110,8 +113,8 @@ def test_schema_normalization():
     
     assert len(valid) > 0, "Should have valid normalized findings"
     assert len(quarantined) == 0, "Should have no quarantined findings"
-    
-    # Verify schema compliance
+
+    # Verify schema compliance via jsonschema.validate()
     for f in valid:
         assert "finding_id" in f, "Missing finding_id"
         assert "classification" in f, "Missing classification"
@@ -120,13 +123,14 @@ def test_schema_normalization():
         assert "location" in f, "Missing location"
         assert "provenance" in f, "Missing provenance"
         assert "schema_version" in f, "Missing schema_version"
-    
+
     print(f"  ✅ Schema: {len(valid)} valid, {len(quarantined)} quarantined")
 
 
 def test_schema_normalization_from_fixture():
-    """Test normalizer logic with saved Slither output — no binary required."""
+    """Test normalizer logic with saved Slither output — no binary required. Validates against JSON Schema."""
     from orchestrator.normalize import FindingNormalizer
+    import jsonschema
 
     fixture_path = FIXTURE_DIR / "slither_output_vulnerable.json"
     assert fixture_path.exists(), f"Fixture not found: {fixture_path}"
@@ -135,7 +139,8 @@ def test_schema_normalization_from_fixture():
         findings = json.load(f)
 
     assert len(findings) > 0, "Fixture should contain findings"
-    normalizer = FindingNormalizer()
+    schema_path = str(Path(__file__).resolve().parent.parent.parent / "schemas" / "finding.json")
+    normalizer = FindingNormalizer(schema_path=schema_path)
 
     valid, quarantined = normalizer.normalize(
         findings,

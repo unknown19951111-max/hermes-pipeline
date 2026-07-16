@@ -156,29 +156,18 @@ def test_vertical_slice_vulnerable():
         print("ASSERTIONS:")
         print(f"{'='*60}")
         
-        # CRITICAL: Slither MUST detect the reentrancy
-        # Looking for either "reentrancy" in the finding title or description
+        # CRITICAL: Slither MUST detect the exact "reentrancy-eth" rule
         reentrancy_found = False
         for f in deduped:
-            title = (f.get("title", "") + f.get("description", "")).lower()
-            tool_rule = f.get("tool", {}).get("rule_id", "").lower()
-            if "reentrancy" in title or "reentrancy" in tool_rule or "reentrancy" in f.get("vulnerability_category", ""):
+            tool_rule = f.get("tool", {}).get("rule_id", "")
+            if tool_rule == "reentrancy-eth":
                 reentrancy_found = True
-                print(f"  ✅ Reentrancy detected: {f.get('title')}")
+                print(f"  ✅ Exact reentrancy-eth detected: {f.get('title')} ({f.get('tool', {}).get('rule_id')})")
                 break
         
-        # If exact reentrancy detector not found, check for any Slither warning
-        if not reentrancy_found:
-            print(f"  ⚠️ No explicit reentrancy detector hit. Checking for any Slither warnings...")
-            # Slither should still produce warnings for the vulnerable contract
-            if len(deduped) > 0:
-                print(f"  ✅ At least one Slither warning produced: {deduped[0].get('title')}")
-                reentrancy_found = True  # Soft pass - Slither is running
-            else:
-                print(f"  ❌ NO Slither warnings at all")
-        
-        assert reentrancy_found or len(deduped) > 0, \
-            "Slither must produce findings for the vulnerable fixture"
+        # Fail hard if exact reentrancy-eth not found
+        assert reentrancy_found, \
+            "Slither MUST produce exact 'reentrancy-eth' rule for the vulnerable fixture"
         
         # Schema validation: all findings must have required fields
         for f in deduped:
@@ -260,19 +249,19 @@ def test_vertical_slice_patched():
         print("ASSERTIONS:")
         print(f"{'='*60}")
         
-        # The patched version should NOT have reentrancy
-        # But may have other informational warnings (naming, etc.)
+        # The patched version MUST NOT have reentrancy-eth
         reentrancy_found = False
         for f in valid:
-            title = (f.get("title", "") + f.get("description", "")).lower()
-            tool_rule = f.get("tool", {}).get("rule_id", "").lower()
-            cat = f.get("vulnerability_category", "").lower()
-            if "reentrancy" in title or "reentrancy" in tool_rule or "reentrancy" in cat:
+            tool_rule = f.get("tool", {}).get("rule_id", "")
+            if tool_rule == "reentrancy-eth":
                 reentrancy_found = True
-                print(f"  ⚠️ Reentrancy still flagged in patched version: {f.get('title')}")
+                print(f"  ❌ reentrancy-eth STILL flagged in patched version: {f.get('title')}")
+        
+        assert not reentrancy_found, \
+            "Patched fixture MUST NOT trigger reentrancy-eth detector"
         
         if not reentrancy_found:
-            print(f"  ✅ No reentrancy detector fired on patched version")
+            print(f"  ✅ No reentrancy-eth detector fired on patched version")
         
         # Verify schema still valid
         for f in valid:

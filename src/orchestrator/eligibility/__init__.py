@@ -33,7 +33,7 @@ class EligibilitySnapshot:
         self._validate()
 
     def _validate(self):
-        required = ["program_name", "date_checked", "status", "result"]
+        required = ["program_name", "date_checked", "program_status", "result"]
         for field in required:
             if field not in self.data:
                 raise EligibilityError(f"Missing required field: {field}")
@@ -124,7 +124,7 @@ class EligibilityGate:
         """Evaluate eligibility from provided program data."""
         pays_for_medium = data.get("pays_for_medium", False)
         reward_table = data.get("reward_table", {})
-        program_status = data.get("status", "unknown")
+        program_status = data.get("program_status", "unknown")
 
         # Determine result
         if program_status == "closed" or program_status == "inactive":

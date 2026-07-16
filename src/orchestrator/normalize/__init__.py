@@ -8,6 +8,8 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Optional
 
+import jsonschema
+
 
 class SchemaValidationError(Exception):
     """Raised when a finding record fails schema validation."""
@@ -35,9 +37,17 @@ class FindingNormalizer:
                 pass
 
     def validate(self, finding: dict) -> list[str]:
-        """Validate a finding record against required fields. Returns list of errors."""
+        """Validate a finding record against the JSON Schema and required fields. Returns list of errors."""
         errors = []
-        
+
+        # JSON Schema validation (when schema is loaded)
+        if self.schema is not None:
+            try:
+                jsonschema.validate(finding, self.schema)
+            except jsonschema.ValidationError as e:
+                errors.append(f"Schema validation error: {e.message}")
+                return errors  # Early return — schema is authoritative
+
         for field in self.REQUIRED_FIELDS:
             if field not in finding:
                 errors.append(f"Missing required field: {field}")
